@@ -1,0 +1,16 @@
+# Step 1: data acquisition dependencies only.
+# No RAG/embeddings/vector-DB/LLM dependencies belong in this stage.
+
+requests==2.34.2
+beautifulsoup4==4.15.0
+lxml==6.1.3
+pydantic==2.13.5
+
+# JS-rendering fallback (not required by either approved source as of this
+# writing -- both serve full server-rendered HTML -- but implemented per
+# spec in case that changes). After installing requirements, also run:
+#   playwright install chromium
+playwright==1.63.0
+
+# Testing
+pytest==9.1.1
