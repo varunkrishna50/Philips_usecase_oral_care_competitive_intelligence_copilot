@@ -1,6 +1,6 @@
 # 3C.1 Evaluation Report
 
-Generated: 2026-10-08T11:36:00.086170+00:00  
+Generated: 2026-10-08T12:10:15.538970+00:00  
 Mode: **offline**  
 Model configuration: provider=openai, model=gpt-4.1-mini, temperature=0
 

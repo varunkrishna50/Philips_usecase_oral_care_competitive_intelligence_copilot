@@ -1000,3 +1000,73 @@ guardrails; end-to-end generation against the real Step 2 corpus
 (no-key fallback, status-aware responses, exhaustive completeness
 including LLM-partial-answer rejection, comparison never calling the
 LLM, prompt-injection posture, out-of-scope refusal); and the CLI.
+
+## Run the Application (Step 3c.2)
+
+Both the CLI and the Streamlit UI call the exact same, unmodified
+`answer_query()` pipeline (`src/rag/generation.py`) -- same grounding,
+citation validation, deterministic comparisons, status-aware phrasing,
+and scope/safety refusals either way. Nothing in this section changes
+how a question is answered; it only adds a way to ask one.
+
+### 1. Environment setup
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. `.env` / `OPENAI_API_KEY` (optional)
+
+```bash
+cp .env.example .env   # then fill in a real OPENAI_API_KEY
+```
+
+`.env` is gitignored and never committed (`.env.example` holds
+placeholders only). **A key is optional** -- with none configured,
+every question still gets a fully grounded answer via the deterministic
+fallback (3B.3); the only difference is that the LLM is not used to
+verbalize evidence into prose, and the app says so explicitly.
+
+### 3. Run the CLI
+
+```bash
+python -m src.rag.pipeline --query "What is the price of the Sonicare Prestige 9900?"
+python -m src.rag.pipeline --query "Which products have 7 brushing modes?" --debug
+python -m src.rag.pipeline --query "..." --no-llm   # force the deterministic fallback
+```
+
+### 4. Run the Streamlit app
+
+```bash
+streamlit run app.py
+```
+
+The first question asked in a given server process takes a few extra
+seconds while the embedding model and retrieval index load; every
+question after that reuses the same cached engine and LLM client
+(`src/app/engine.py` -- `st.cache_resource`), so the model is never
+reloaded per interaction.
+
+### 5. What to expect
+
+- A grounded answer with a `Sources` section listing the exact
+  official product page(s) the answer came from.
+- Out-of-scope requests (a third-party retailer, a non-US page), a
+  product not in the corpus, an ambiguous product name, and
+  medical/dental-advice questions are all refused or redirected with a
+  clear explanation instead of a fabricated answer -- the same
+  behavior already verified by the 3C.1 evaluation harness
+  (`data/evaluation/evaluation_report.md`).
+- An optional "Debug / Retrieval Details" panel shows which intent/
+  product/attributes were detected and each segment's citation
+  validity -- never raw prompts or hidden reasoning, and never the API
+  key.
+
+### 6. Scope reminder
+
+Every answer is restricted to the official Philips US
+(`www.usa.philips.com`) and Oral-B US (`oralb.com`) public product
+pages acquired in Step 1 -- never Amazon or other retailers, never
+non-US regional sites, and never general medical/dental advice beyond
+the manufacturer's own published product claims.
