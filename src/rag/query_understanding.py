@@ -1,0 +1,264 @@
+"""Deterministic query understanding: product recognition (3A.8/14/15),
+attribute mapping (3A.9), and intent classification (3A.13).
+
+Nothing here uses an LLM or embeddings -- it's plain tokenization and
+regex, run before retrieval so the rest of the pipeline knows which
+product(s)/attribute(s) the query is actually about.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Literal
+
+from .models import ProductRecord
+
+ProductMatchKind = Literal["matched", "ambiguous", "not_in_corpus", "none"]
+Intent = Literal["exhaustive", "comparison", "normal"]
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+def normalize_tokens(text: str) -> list[str]:
+    return _TOKEN_RE.findall(text.lower())
+
+
+# Brand/category words so common across the catalog that matching them
+# alone says nothing about which specific product is meant -- e.g. some
+# Oral-B product names include an "Oral-B" prefix and some don't, so a
+# raw "longest contiguous match" would let a generic "Oral-B iO Series"
+# prefix (shared by several products) outscore a short but genuinely
+# unique "iO Series 10" match. Scoring discriminative-token count FIRST,
+# raw length only as a tiebreaker, fixes that.
+_GENERIC_MATCH_TOKENS = {
+    "oral", "b", "oralb", "io", "series", "electric", "toothbrush",
+    "toothbrushes", "rechargeable", "philips", "sonicare", "sonic",
+}
+
+
+def _discriminative_count(tokens: list[str]) -> int:
+    return sum(1 for t in tokens if t not in _GENERIC_MATCH_TOKENS)
+
+
+def _best_match_score(query_tokens: list[str], target_tokens: list[str]) -> tuple[int, int]:
+    """(discriminative_token_count, raw_length) of the best contiguous
+    span of query_tokens that also appears, in order, in target_tokens.
+    Compared as a tuple, so a match carrying a real distinguishing token
+    (a model number, "genius", "prestige", ...) always outranks a longer
+    but purely generic brand/category-word match."""
+    if not query_tokens or not target_tokens:
+        return (0, 0)
+    target_str = " " + " ".join(target_tokens) + " "
+    best = (0, 0)
+    n = len(query_tokens)
+    for i in range(n):
+        for j in range(i + 1, n + 1):
+            span = query_tokens[i:j]
+            phrase = " " + " ".join(span) + " "
+            if phrase in target_str:
+                score = (_discriminative_count(span), j - i)
+                if score > best:
+                    best = score
+    return best
+
+
+@dataclass
+class ProductMatch:
+    kind: ProductMatchKind
+    candidates: list[ProductRecord] = field(default_factory=list)
+    match_len: int = 0
+
+
+# Brand/family words common enough that a query built ONLY from these
+# (plus an unrecognized number) still plausibly references a product --
+# used only by the not-in-corpus heuristic below, never to narrow matches.
+_BRAND_WORDS = {"philips", "sonicare", "oral", "oralb", "io"}
+_COMPETITOR_BRANDS = {
+    "colgate", "quip", "waterpik", "burst", "goby", "oclean", "fairywill", "suri",
+}
+
+MIN_PRODUCT_MATCH_LEN = 2
+MAX_GENERIC_TIE = 20  # a tie this wide is a category phrase, not a product family
+
+
+def _known_product_numbers(products: list[ProductRecord]) -> set[str]:
+    known: set[str] = set()
+    for p in products:
+        known.update(t for t in normalize_tokens(p.product_id) + normalize_tokens(p.product_name) if t.isdigit())
+    return known
+
+
+def detect_products(query: str, products: list[ProductRecord]) -> ProductMatch:
+    """Deterministic product recognition over the actual catalog (3A.8).
+
+    - A unique best-scoring match -> "matched" (exact product/model
+      identifiers always win over a semantically similar but different
+      model, since this never consults embeddings; see
+      _best_match_score for why raw phrase length alone isn't enough).
+    - A tie confined to ONE brand -> "ambiguous" (e.g. "iO Series" with
+      no number matches every Oral-B iO product; "electric toothbrush"
+      ties across BOTH brands and is rejected as a generic category
+      phrase instead, see MAX_GENERIC_TIE / brand-homogeneity check).
+    - The query names a specific model number that doesn't belong to
+      ANY real product (so the best match is purely generic brand/family
+      words), or names a known competitor brand -> "not_in_corpus" (3A.15).
+    - Otherwise -> "none" (no product referenced at all).
+    """
+    query_tokens = normalize_tokens(query)
+    query_numbers = {t for t in query_tokens if t.isdigit()}
+    has_unknown_number = bool(query_numbers - _known_product_numbers(products))
+    has_brand_word = any(t in _BRAND_WORDS for t in query_tokens)
+    has_competitor = any(t in _COMPETITOR_BRANDS for t in query_tokens)
+
+    scored: list[tuple[ProductRecord, tuple[int, int]]] = []
+    for p in products:
+        id_tokens = normalize_tokens(p.product_id)
+        name_tokens = normalize_tokens(p.product_name)
+        score = max(
+            _best_match_score(query_tokens, id_tokens),
+            _best_match_score(query_tokens, name_tokens),
+        )
+        scored.append((p, score))
+
+    best_score = max((s for _, s in scored), default=(0, 0))
+    disc_count, raw_len = best_score
+
+    if has_competitor:
+        return ProductMatch(kind="not_in_corpus", candidates=[], match_len=raw_len)
+
+    if raw_len < MIN_PRODUCT_MATCH_LEN:
+        if has_brand_word and has_unknown_number:
+            return ProductMatch(kind="not_in_corpus", candidates=[], match_len=raw_len)
+        return ProductMatch(kind="none", candidates=[], match_len=raw_len)
+
+    # The only thing that matched is generic brand/family wording, and
+    # the query named a specific number that belongs to no real product
+    # -- the user tried to be specific and named something that doesn't
+    # exist, not an ambiguous family reference.
+    if disc_count == 0 and has_unknown_number:
+        return ProductMatch(kind="not_in_corpus", candidates=[], match_len=raw_len)
+
+    tied = [p for p, s in scored if s == best_score]
+    if len(tied) == 1:
+        return ProductMatch(kind="matched", candidates=tied, match_len=raw_len)
+    brands = {p.brand for p in tied}
+    if len(brands) == 1 and len(tied) <= MAX_GENERIC_TIE:
+        return ProductMatch(kind="ambiguous", candidates=tied, match_len=raw_len)
+    # Spans multiple brands (or is nearly the whole catalog): a generic
+    # category phrase like "electric toothbrush", not a specific family.
+    return ProductMatch(kind="none", candidates=[], match_len=raw_len)
+
+
+# ---------------------------------------------------------------------------
+# Attribute mapping (3A.9) -- natural language -> Step 2 attribute names.
+# Every key here must be a real column in comparison_table.csv (see
+# src/normalization/models.py:ATTRIBUTE_FIELDS); nothing invented.
+# ---------------------------------------------------------------------------
+
+ATTRIBUTE_PATTERNS: dict[str, list[str]] = {
+    "price": [r"\bprice\b", r"\bcost\b", r"how much", r"\bexpensive\b", r"\bcheap(?:er)?\b"],
+    "mode_count": [r"how many (?:brushing )?modes", r"\bmodes?\b", r"how many settings", r"brushing modes", r"number of modes"],
+    "modes": [r"what modes", r"which modes", r"list.*modes", r"names? of.*modes"],
+    "pressure_sensing": [
+        r"pressure sensor", r"pressure sensing", r"press(?:ing)? too hard",
+        r"brush(?:ing)? too hard", r"too much pressure", r"too hard",
+        r"excessive pressure", r"detect.*pressure", r"\bpressure\b",
+    ],
+    "app_connectivity": [r"\bapp\b", r"connect.*(?:phone|app)", r"mobile app", r"smartphone"],
+    "bluetooth_connectivity": [r"bluetooth", r"connect.*phone"],
+    "timer": [r"\btimer\b", r"2.minute", r"quadpacer", r"smartimer", r"brushing time"],
+    "timer_description": [r"\btimer\b", r"how does.*timer"],
+    "battery_life_days": [r"battery life", r"how long.*(?:charge|battery)", r"recharge", r"battery last", r"charge last"],
+    "battery_life_raw": [r"battery life", r"how long.*(?:charge|battery)", r"battery last"],
+    "charging_method": [r"charg(?:e|ing|er)", r"how (?:is|does).*charg"],
+    "charging_method_raw": [r"charg(?:e|ing|er)"],
+    "included_items": [r"what comes in the box", r"what.?s in the box", r"\bincluded\b", r"come[s]? with", r"package contents", r"what do (?:i|you) get"],
+    "description": [r"describe", r"what is (?:the|this)", r"tell me about"],
+    "claims": [r"\bclaim", r"marketing claim"],
+    "specifications": [r"spec(?:ification)?s?\b"],
+}
+
+_COMPILED_ATTRIBUTE_PATTERNS = {
+    attr: [re.compile(p, re.I) for p in patterns] for attr, patterns in ATTRIBUTE_PATTERNS.items()
+}
+
+
+def detect_attributes(query: str) -> list[str]:
+    """Every Step 2 attribute whose natural-language synonyms appear in
+    the query, in ATTRIBUTE_PATTERNS's declaration order (stable)."""
+    hits = []
+    for attr, patterns in _COMPILED_ATTRIBUTE_PATTERNS.items():
+        if any(p.search(query) for p in patterns):
+            hits.append(attr)
+    return hits
+
+
+# Numeric Step 2 attributes an exhaustive query can ask about by exact
+# value ("Which products have 7 brushing modes?"), as opposed to the
+# boolean attributes 3A.13 originally covered ("Which products have
+# pressure sensing?"). Kept in sync by hand with
+# src/rag/comparison_engine.py:NUMERIC_ATTRIBUTES -- not imported from
+# there to avoid a 3A->3B dependency for what is just a small, stable
+# set of Step 2 schema column names.
+NUMERIC_EXHAUSTIVE_ATTRIBUTES = {"price", "mode_count", "battery_life_days"}
+
+_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+
+
+def detect_exhaustive_condition_value(query: str, attribute: str):
+    """The value a matching product's attribute must equal for an
+    exhaustive "which products have <attribute>?" query (3A.13).
+
+    Boolean attributes keep the original default: "which products have
+    X" means X is present (True). Numeric attributes instead require a
+    literal number in the query text itself (e.g. "7 brushing modes"
+    -> mode_count == 7); returns None if no number is present, so the
+    caller can tell "no numeric condition was actually stated" apart
+    from "the condition is true" -- never silently falls back to
+    comparing a number against True.
+    """
+    if attribute not in NUMERIC_EXHAUSTIVE_ATTRIBUTES:
+        return True
+    match = _NUMBER_RE.search(query)
+    if not match:
+        return None
+    text = match.group(0)
+    return int(text) if text.isdigit() else float(text)
+
+
+# ---------------------------------------------------------------------------
+# Intent classification (3A.13)
+# ---------------------------------------------------------------------------
+
+_EXHAUSTIVE_RE = re.compile(r"\bwhich (?:products?|models?|toothbrushes?)\b", re.I)
+_COMPARISON_RE = re.compile(r"\bcompar\w*\b|\bvs\.?\b|\bversus\b", re.I)
+_COMPARISON_SPLIT_RE = re.compile(r"\bvs\.?\b|\bversus\b|\band\b|\bcompar\w*\b", re.I)
+
+
+def classify_intent(query: str, product_match: ProductMatch) -> Intent:
+    if _EXHAUSTIVE_RE.search(query):
+        return "exhaustive"
+    if _COMPARISON_RE.search(query):
+        return "comparison"
+    return "normal"
+
+
+def detect_comparison_products(query: str, products: list[ProductRecord]) -> list[ProductMatch]:
+    """For a comparison-intent query ("Compare X and Y on Z"), a single
+    detect_products() call can't tell two named products apart -- split
+    on comparison delimiters (and/vs/versus/compar*) and resolve each
+    segment independently, deduplicating by product_id so the same
+    product named twice doesn't count twice."""
+    segments = [s.strip() for s in _COMPARISON_SPLIT_RE.split(query) if s.strip()]
+    matches: list[ProductMatch] = []
+    seen_product_ids: set[str] = set()
+    for segment in segments:
+        match = detect_products(segment, products)
+        if match.kind != "matched":
+            continue
+        product = match.candidates[0]
+        if product.product_id in seen_product_ids:
+            continue
+        seen_product_ids.add(product.product_id)
+        matches.append(match)
+    return matches

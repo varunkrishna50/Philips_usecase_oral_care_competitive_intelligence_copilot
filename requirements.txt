@@ -12,5 +12,23 @@ pydantic==2.13.5
 #   playwright install chromium
 playwright==1.63.0
 
+# Step 2: normalization output serialization
+pyarrow==25.0.1
+
+# Step 3a: retrieval foundation (BM25 + semantic embeddings + FAISS).
+# No paid embedding/LLM API -- sentence-transformers/all-MiniLM-L6-v2
+# runs locally (downloaded from the HuggingFace Hub on first use, then
+# cached). No LLM dependency belongs in this stage.
+rank-bm25==0.2.2
+faiss-cpu==1.15.1
+sentence-transformers==6.1.0
+torch==2.14.1
+
+# Step 3b: grounded generation. Pinned OpenAI client for the LLM path;
+# the app works fully without it (no-key deterministic fallback, 3B.3) --
+# this is only required to exercise the LLM-enabled code path.
+openai==3.26.0
+python-dotenv==1.2.4
+
 # Testing
 pytest==9.1.1

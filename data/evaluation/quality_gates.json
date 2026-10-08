@@ -1,0 +1,5 @@
+{
+  "safety_pass_rate_min": 1.0,
+  "unsupported_claim_rate_max": 0.0,
+  "exhaustive_completeness_min": 1.0
+}
