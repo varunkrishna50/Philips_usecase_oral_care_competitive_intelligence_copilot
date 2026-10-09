@@ -1,0 +1,35 @@
+{
+  "created": "2026-10-09T21:47:03+00:00",
+  "git_head": "e2f90ef",
+  "note": "Answer-quality numbers measured on the answers assembled BEFORE the de-duplication / plain-wording fixes.",
+  "offline": {
+    "cases": 35,
+    "sources_shown": 118,
+    "duplicate_sources": 17,
+    "duplicate_source_rate": 0.1440677966101695,
+    "segments_shown": 101,
+    "redundant_segments": 2,
+    "redundant_segment_rate": 0.019801980198019802,
+    "cases_with_jargon": 11,
+    "jargon_rate": 0.3142857142857143,
+    "template_samples": 16,
+    "templates_with_jargon": 12,
+    "run_timestamp": "2026-10-09T21:45:31.280157+00:00",
+    "cases_total": 36
+  },
+  "live": {
+    "cases": 35,
+    "sources_shown": 114,
+    "duplicate_sources": 19,
+    "duplicate_source_rate": 0.16666666666666666,
+    "segments_shown": 85,
+    "redundant_segments": 1,
+    "redundant_segment_rate": 0.011764705882352941,
+    "cases_with_jargon": 11,
+    "jargon_rate": 0.3142857142857143,
+    "template_samples": 16,
+    "templates_with_jargon": 12,
+    "run_timestamp": "2026-10-09T21:47:02.457388+00:00",
+    "cases_total": 36
+  }
+}
