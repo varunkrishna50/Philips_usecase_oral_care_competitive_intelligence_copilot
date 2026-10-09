@@ -19,10 +19,13 @@ from src.rag.citations import Segment, render_answer_text, render_sources_sectio
 from src.rag.comparison_engine import compare_attribute
 from src.rag.generation import AnswerResult, _call_llm_for_segments, answer_query
 from src.rag.llm_provider import LLMConfig, OpenAIStructuredClient
+from src.rag.query_understanding import product_mentioned
 from src.rag.models import RetrievalDocument
 from src.rag.retrieve import RetrievalEngine
 
 from . import comparison_eval, exhaustive_eval, groundedness, safety_eval
+from . import answer_quality
+from .content_checks import check_content, summarize
 from .citation_metrics import CitationMetrics, aggregate_citation_metrics, compute_citation_metrics
 from .gold_labels import GoldCorpus, load_gold_corpus, status_coverage
 from .quality_gates import QualityGates, evaluate_gates
@@ -73,6 +76,8 @@ class CaseResult:
     groundedness_issues: list[dict] = field(default_factory=list)
     usage: Optional[dict] = None
     latency_seconds: Optional[float] = None
+    content_checks: list[dict] = field(default_factory=list)
+    answer_quality: Optional[dict] = None
 
 
 _SHORT_CIRCUIT_REASON_MARKERS = (
@@ -104,6 +109,10 @@ def _groundedness_for_segments(case: TestCase, segments, corpus: GoldCorpus) -> 
     return issues
 
 
+# the last AnswerResult per case, kept so answer-quality metrics can read what the user was shown
+_ANSWERS: dict[str, AnswerResult] = {}
+
+
 def _run_generation_case(
     case: TestCase, engine: RetrievalEngine, llm_client: Optional[OpenAIStructuredClient], no_llm: bool,
 ) -> tuple[AnswerResult, Optional[dict], Optional[float]]:
@@ -115,6 +124,7 @@ def _run_generation_case(
     PREVIOUS case's usage as its own)."""
     calls_before = llm_client.call_count if llm_client else 0
     result = answer_query(case.question, engine, llm_client=llm_client, no_llm=no_llm)
+    _ANSWERS[case.id] = result
     if llm_client is not None and llm_client.call_count > calls_before:
         return result, llm_client.last_usage, llm_client.last_latency_seconds
     return result, None, None
@@ -128,7 +138,8 @@ def _evaluate_direct_or_product_case(case: TestCase, result: AnswerResult, corpu
         return False, "answer is missing a Sources section despite must_cite=true"
     for pid in case.gold_products:
         product = corpus.find_product(pid)
-        if product and product.product_name not in text:
+        if product and product.product_name not in text and not product_mentioned(text, pid, product.product_name):
+            # the model may say "the Philips Sonicare 4100"; the catalog name or any alias of it counts
             return False, f"expected product {product.product_name!r} not mentioned in answer"
     return True, "product/attribute mentioned with citations"
 
@@ -146,7 +157,7 @@ def _evaluate_status_case(case: TestCase, result: AnswerResult, corpus: GoldCorp
     if case.expected_answer_type == "stated_null_disclosure":
         if status != "stated" or value is not None:
             return False, f"test case assumption wrong: gold status={status!r}, value={value!r}"
-        ok = "does not provide a normalized value" in text or "manufacturer states" in text
+        ok = "does not state" in text and "it says" in text
         return ok, "quoted source wording for an unnormalizable value" if ok else f"expected a stated+null disclosure; got: {result.answer_text[:200]!r}"
     return False, f"unhandled expected_answer_type {case.expected_answer_type!r}"
 
@@ -166,12 +177,14 @@ def _evaluate_exhaustive_case(case: TestCase, result: AnswerResult, corpus: Gold
         ), check
     # Completeness at the retrieval-scan level isn't the same as every
     # expected product having a VALID, cited segment in the final answer.
+    # A product counts when a valid segment CITES evidence for it (the grounding the user sees), not
+    # when the model happens to spell its catalog name in full ("... Toothbrush, Cosmic Black").
+    product_of_evidence = {e.evidence_id: e.product_id for e in corpus.evidence}
     cited_product_ids = set()
     for seg in result.segments:
         if not seg.valid:
             continue
-        mentioned = groundedness.mentioned_products(seg.text, corpus)
-        cited_product_ids.update(p.product_id for p in mentioned)
+        cited_product_ids.update(product_of_evidence[cid] for cid in seg.citation_ids if cid in product_of_evidence)
     missing_in_answer = expected_ids - cited_product_ids
     if missing_in_answer:
         return False, f"retrieval scan was complete, but the final answer is missing {sorted(missing_in_answer)}", check
@@ -197,6 +210,27 @@ def _evaluate_comparison_case(case: TestCase, result: AnswerResult, engine: Retr
 
 
 def evaluate_test_case(
+    case: TestCase, engine: RetrievalEngine, corpus: GoldCorpus, mode: str,
+    llm_client: Optional[OpenAIStructuredClient],
+) -> CaseResult:
+    """Runs one case, then applies its ``must_include`` / ``must_not_include`` content checks to
+    the answer (every category, so a case with phrases can never pass on structure alone)."""
+    result = _evaluate_test_case(case, engine, corpus, mode, llm_client)
+    answer = _ANSWERS.pop(case.id, None)
+    if answer is not None and engine is not None:
+        evidence_by_id = {d.evidence_id: d for d in engine.retrieval_documents}
+        result.answer_quality = answer_quality.measure_answer(answer, evidence_by_id)
+    if (case.must_include or case.must_not_include) and result.verdict != "not_exercised":
+        checks = check_content(result.answer_text, case.must_include, case.must_not_include)
+        result.content_checks = checks
+        failed = [c for c in checks if not c["ok"]]
+        result.detail += f"; content checks: {summarize(checks)}"
+        if failed:
+            result.passed, result.verdict = False, "fail"
+    return result
+
+
+def _evaluate_test_case(
     case: TestCase, engine: RetrievalEngine, corpus: GoldCorpus, mode: str,
     llm_client: Optional[OpenAIStructuredClient],
 ) -> CaseResult:
@@ -395,7 +429,26 @@ def _aggregate(case_results: list[CaseResult]) -> dict:
         "exhaustive_completeness": (len(exhaustive_passed) / len(exhaustive_cases)) if exhaustive_cases else 1.0,
         "unsupported_claim_count": unsupported_segments,
         "unsupported_claim_rate": (unsupported_segments / len(case_results)) if case_results else 0.0,
+        "uncited_factual_segments": aggregated_citation.uncited_other if aggregated_citation else 0,
         "citation_metrics": aggregated_citation,
+    }
+
+
+def corpus_fingerprint() -> dict:
+    """Identity of the retrieval corpus this run measured (shown next to the retrieval table)."""
+    import hashlib
+
+    from src.rag.config import RETRIEVAL_DOCUMENTS_PATH
+
+    try:
+        data = RETRIEVAL_DOCUMENTS_PATH.read_bytes()
+    except OSError:
+        return {"retrieval_documents": None}
+    modified = datetime.fromtimestamp(RETRIEVAL_DOCUMENTS_PATH.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+    return {
+        "retrieval_documents": len(__import__("json").loads(data)),
+        "retrieval_documents_sha256": hashlib.sha256(data).hexdigest()[:12],
+        "retrieval_documents_modified": modified,
     }
 
 
@@ -415,15 +468,31 @@ def run_evaluation(
     case_results = [evaluate_test_case(case, engine, corpus, mode, llm_client) for case in suite.cases]
 
     retrieval_metrics = compute_retrieval_metrics(engine)
+    quality = {
+        "aggregate": answer_quality.aggregate([c.answer_quality for c in case_results]),
+        "template_samples": len(answer_quality.template_samples()),
+        "template_jargon": answer_quality.template_jargon(),
+        "baseline": answer_quality.load_baseline(mode),
+    }
     aggregate_metrics = _aggregate(case_results)
+    aggregate_metrics.update({
+        "duplicate_source_rate": quality["aggregate"]["duplicate_source_rate"],
+        "redundant_segment_rate": quality["aggregate"]["redundant_segment_rate"],
+        "jargon_rate": quality["aggregate"]["jargon_rate"],
+        "template_jargon": len(quality["template_jargon"]),
+    })
     coverage = status_coverage(corpus)
     gates = QualityGates.load(gates_path) if gates_path else QualityGates.load()
     gate_results = evaluate_gates(gates, aggregate_metrics)
 
+    negative_control = groundedness.run_negative_controls(corpus)
+
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
-        "corpus": {"product_count": len(corpus.products), "evidence_count": len(corpus.evidence)},
+        "corpus": {"product_count": len(corpus.products), "evidence_count": len(corpus.evidence), **corpus_fingerprint()},
+        "groundedness_negative_control": negative_control,
+        "answer_quality": quality,
         "model_configuration": {
             "provider": config.provider, "model": config.model, "temperature": config.temperature,
             "api_key_configured": config.available if mode == "live" else None,
@@ -434,7 +503,8 @@ def run_evaluation(
                 "passed": c.passed, "detail": c.detail, "llm_called": c.llm_called,
                 "fallback_used": c.fallback_used, "fallback_reason": c.fallback_reason,
                 "answer_text": c.answer_text, "usage": c.usage, "latency_seconds": c.latency_seconds,
-                "groundedness_issues": c.groundedness_issues,
+                "groundedness_issues": c.groundedness_issues, "content_checks": c.content_checks,
+                "answer_quality": c.answer_quality,
                 "citation_metrics": (c.citation_metrics.__dict__ if c.citation_metrics else None),
             }
             for c in case_results

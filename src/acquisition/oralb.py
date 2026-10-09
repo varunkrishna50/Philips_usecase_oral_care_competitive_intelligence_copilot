@@ -34,6 +34,7 @@ from .details import (
     find_stated_mode_count,
     html_to_lines,
     js_json_parse_payload,
+    classify_bundle,
     parse_product_copy,
     split_box_item,
 )
@@ -518,13 +519,35 @@ def embedded_copy_sections(main_product: dict) -> tuple[list[Section], str]:
     block: list[str] = []
     intro_lines = [line for line, _ in copy["intro"]]
     if intro_lines:
-        sections.append(Section(heading="Product description", text="\n".join(intro_lines)))
+        sections.append(Section(heading="Product description", text="\n".join(intro_lines), visibility="expanded"))
         block += ["Product description"] + intro_lines
     for heading, lines in copy["tabs"].items():
         if lines:
-            sections.append(Section(heading=heading, text="\n".join(lines)))
+            sections.append(Section(heading=heading, text="\n".join(lines), visibility="expanded"))
             block += [heading] + lines
     return sections, "\n".join(block)
+
+
+_MERCH_FIELD = re.compile(r"^(?:gift-card-desc|TextFeature\d+|Shop By Feature)$")
+
+
+def _merchandising_tags(main_product: dict) -> list[str]:
+    tags: list[str] = []
+    for f in main_product.get("custom_fields", []):
+        if _MERCH_FIELD.match(str(f.get("name", ""))):
+            value = str(f.get("value", "")).strip()
+            if value and value.lower() not in {t.lower() for t in tags}:
+                tags.append(value)
+    return tags
+
+
+def _variant_label(final_url: str, group_key: str) -> str | None:
+    slug = _slug_from_path(urlparse(final_url).path)
+    if slug.startswith("oral-b-"):
+        slug = slug[len("oral-b-"):]
+    if slug.startswith(group_key) and len(slug) > len(group_key):
+        return slug[len(group_key):].strip("-").replace("-", " ").title() or None
+    return None
 
 
 def _custom_fields(main_product: dict) -> list[dict]:
@@ -700,6 +723,14 @@ def build_record(
         outcome.structured_data["rating_widget_text"] = rating_text
     if rating_error:
         details.notes.append(rating_error)
+
+    # Hidden merchandising text: kept for reference, never evidence.
+    details.merchandising_tags = _merchandising_tags(main_product)
+    details.source_variant_sku = str(main_product.get("sku") or "") or None
+    details.source_variant_label = _variant_label(outcome.final_url, discovery_meta.group_key)
+    details.product_type, details.handle_count, bundle_reason = classify_bundle(product_name, details.box_items)
+    if bundle_reason:
+        errors.append(f"bundle_excluded_by_policy: {bundle_reason}")
 
     extra_sections, extra_text = embedded_copy_sections(main_product)
     sections = [Section(**sec) for sec in outcome.sections] + extra_sections

@@ -77,13 +77,6 @@
     "section_heading": "iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White"
   },
   {
-    "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
-    "code": "brush_head_quantity_not_stated",
-    "message": "'What's in the box' lists brush heads without a quantity (['Gum & Sensitive Replacement Brush Head', 'Ultimate Clean Replacement Brush Head']); no count reported.",
-    "attribute": "brush_heads_included",
-    "section_heading": null
-  },
-  {
     "product_id": "oralb_io-series-3-clean-protect-rechargeable-electric-toothbrush",
     "code": "cross_product_comparison_section_excluded",
     "message": "Excluded comparison-framed section 'What is the difference between Oral-B iO Series 2 and 3?' from evidence consideration.",
@@ -252,13 +245,6 @@
     "section_heading": "How long does an Oral-B iO Series 9 battery last?"
   },
   {
-    "product_id": "oralb_io-ultimate-clean-rechargeable-electric-toothbrush",
-    "code": "unnormalizable_value",
-    "message": "Charging is mentioned ('Chargers') but cannot be safely mapped to a controlled charging-method category.",
-    "attribute": "charging_method",
-    "section_heading": "iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack"
-  },
-  {
     "product_id": "philips_hx3681-03",
     "code": "cross_product_comparison_section_excluded",
     "message": "Excluded comparison-framed section 'Up to 3x better plaque removal vs a manual toothbrush*' from evidence consideration.",
@@ -284,6 +270,13 @@
     "code": "intensity_count_mismatch",
     "message": "The feature text says 3 intensities (High, Medium, Low) but the specification table lists 2 (High, Low); the feature text is used.",
     "attribute": "intensity_levels",
+    "section_heading": null
+  },
+  {
+    "product_id": "philips_hx4031-71",
+    "code": "detail_evidence_not_verbatim",
+    "message": "Dropped an evidence snippet for claims_with_disclaimers: not a verbatim substring of the page.",
+    "attribute": "claims_with_disclaimers",
     "section_heading": null
   },
   {

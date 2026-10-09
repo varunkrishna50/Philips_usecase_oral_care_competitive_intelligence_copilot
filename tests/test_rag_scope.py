@@ -12,7 +12,7 @@ class TestDetectOutOfScopeSource:
     def test_amazon_price_request_is_refused(self):
         message = detect_out_of_scope_source("What is the Amazon price of this toothbrush?")
         assert message is not None
-        assert "third-party retailers" in message
+        assert "other retailers" in message
 
     def test_other_known_retailers_are_refused(self):
         for retailer in ("eBay", "Walmart", "Target", "Best Buy", "Costco"):
@@ -21,7 +21,7 @@ class TestDetectOutOfScopeSource:
     def test_non_us_source_request_is_refused(self):
         message = detect_out_of_scope_source("What does the UK Philips page say about this product?")
         assert message is not None
-        assert "Non-US" in message
+        assert "other countries" in message
 
     def test_other_non_us_regions_are_refused(self):
         for phrase in ("the Canada site", "the Australian page", "the India listing"):

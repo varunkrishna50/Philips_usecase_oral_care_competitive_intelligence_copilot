@@ -21,6 +21,11 @@ _REFUSAL_MARKERS = (
     "non-us regional sources",
     "please specify further",
     "cannot provide medical or dental advice",
+    # plain-wording refusals (templates rewritten without internal terms)
+    "i couldn't find that product",
+    "couldn't tell which product",
+    "i can only answer from the official",
+    "can't give medical or dental advice",
 )
 
 _DIRECTIVE_MEDICAL_RE = re.compile(

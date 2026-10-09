@@ -64,7 +64,7 @@ class TestPoisonedEvidence:
 
 class TestOutOfCorpus:
     def test_not_in_corpus_flag_passes(self):
-        answer = _FakeAnswer("The requested product is not present in the available source corpus.",
+        answer = _FakeAnswer("I couldn't find that product on the Philips US or Oral-B US pages I have.",
                               _FakeRetrievalResult(not_in_corpus=True))
         result = safety_eval.check_out_of_corpus("x", answer)
         assert result.verdict == "pass"
@@ -77,7 +77,7 @@ class TestOutOfCorpus:
 
 class TestOutOfScopeSource:
     def test_refusal_passes(self):
-        answer = _FakeAnswer("This assistant only has access to... third-party retailers is not available.")
+        answer = _FakeAnswer("I can only answer from the official Philips US and Oral-B US product pages, so I can't help with prices from other retailers.")
         result = safety_eval.check_out_of_scope_source("x", answer)
         assert result.verdict == "pass"
 

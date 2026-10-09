@@ -88,7 +88,7 @@ def test_s2_own_side_comparison_facts_and_battery(built):
     assert p.feel_and_noise.value.startswith("Smoother and quieter")
     assert "Entry point" in p.price_positioning.value
     assert any("low-charge indicator" in s for s in p.battery_details.value)
-    assert p.brush_heads_included.status == "not_mentioned"  # quantity not stated
+    assert p.brush_heads_included.value == 2  # the box lists two heads
 
 
 # --- Oral-B Series 3 ---------------------------------------------------------------------------------------
@@ -97,7 +97,8 @@ def test_s3_claims_are_single_sentences_and_display_is_stated(built):
     p = _p(built, "io-series-3")
     assert all(len(c) < 300 for c in p.claims.value)
     assert any("400% more plaque" in c for c in p.claims.value)
-    assert "light ring" in p.display_type.value
+    # a light ring / handle indicator is not a display
+    assert p.display_type.status == "not_mentioned"
     assert "every 3 months" in p.brush_head_replacement_interval.value
     # the warranty-tab footnote is not a disclaimer of any claim
     assert p.disclaimers.status == "not_mentioned"
@@ -121,7 +122,8 @@ def test_s4_description_is_complete_and_footnotes_merged(built):
 def test_s5_timer_includes_30_second_vibration(built):
     p = _p(built, "io-series-5")
     assert "vibrates every 30 seconds" in p.timer_description.value
-    assert p.replacement_reminder.value is True
+    # "Equipped with a Brush Head Tracker" does not say it reminds you to replace the head
+    assert p.replacement_reminder.status == "not_mentioned"
 
 
 # --- Philips hx4031-71 ------------------------------------------------------------------------------------------

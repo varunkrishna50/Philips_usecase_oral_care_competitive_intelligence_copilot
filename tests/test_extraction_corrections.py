@@ -131,7 +131,8 @@ class TestIncludedItemsFromBoxList:
             "Charger",
         ]
         assert product.travel_case_included.status == "not_mentioned"
-        assert product.brush_heads_included.status == "not_mentioned"  # two head types, no quantity stated
+        # two separately listed head lines, no quantity on either = 2 heads
+        assert product.brush_heads_included.value == 2
 
     def test_hidden_custom_fields_are_never_evidence(self):
         for slug in ("oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
@@ -344,7 +345,9 @@ class TestModeVsIntensityCount:
         record = _load_real_record("philips", "philips_hx3681-03")
         store, warnings = EvidenceStore(), []
         product = philips.normalize_product(record, store, warnings)
-        assert product.mode_count.status == "not_mentioned"
+        # 'Clean' is the only mode listed (intensities are a separate concept):
+        # mode_count follows the known modes.
+        assert product.mode_count.status == "stated" and product.mode_count.value == 1
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,10 @@
 {
   "safety_pass_rate_min": 1.0,
   "unsupported_claim_rate_max": 0.0,
-  "exhaustive_completeness_min": 1.0
+  "exhaustive_completeness_min": 1.0,
+  "uncited_factual_segments_max": 0,
+  "duplicate_source_rate_max": 0.0,
+  "redundant_segment_rate_max": 0.0,
+  "jargon_rate_max": 0.0,
+  "template_jargon_max": 0
 }

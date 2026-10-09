@@ -170,3 +170,76 @@ def check_comparison_claims(text: str, gold: GoldComparison, product_a: GoldProd
                     f"text claims a difference of {claimed_diff} for {gold.attribute}, gold diff is {gold.diff}",
                 ))
     return issues
+
+
+# ---------------------------------------------------------------------------------------------------
+# Negative control: a checker that cannot fail proves nothing, so run it on sentences that are
+# deliberately false (it must flag each) and on true ones (it must stay silent).
+# ---------------------------------------------------------------------------------------------------
+
+def _unsupported_number(corpus: GoldCorpus, product: GoldProduct, candidates: list[str]) -> str:
+    """The first candidate number that appears nowhere in the product's evidence or attribute values."""
+    texts = [e.evidence_text for e in corpus.evidence if e.product_id == product.product_id]
+    known = _gold_value_strings(product)
+    for number in candidates:
+        if number not in known and not any(number in t for t in texts):
+            return number
+    raise ValueError(f"every candidate number is supported for {product.product_name}")
+
+
+def run_negative_controls(corpus: GoldCorpus) -> dict:
+    """Feeds the checker deliberately false and known-true sentences built from the gold corpus.
+
+    False (each must be flagged): a made-up mode count, a made-up price, a made-up percentage,
+    a denied feature the product has, and a sentence about another product under a one-product
+    scope. True (each must be clean): the product's real price, an affirmed feature it has.
+    """
+    with_price = [p for p in corpus.products if isinstance(p.get("price"), (int, float)) and not isinstance(p.get("price"), bool)]
+    with_pressure = [p for p in corpus.products if p.get("pressure_sensing") is True]
+    if len(corpus.products) < 2 or not with_price or not with_pressure:
+        raise ValueError("gold corpus too small for the negative control")
+    product, other = with_price[0], next(p for p in corpus.products if p.product_id != with_price[0].product_id)
+    pressure_product = with_pressure[0]
+
+    modes = _unsupported_number(corpus, product, ["42", "47", "83", "91"])
+    price = _unsupported_number(corpus, product, ["7.77", "1234.56", "8.88"])
+    pct = _unsupported_number(corpus, product, ["8123", "7311", "6421"])
+
+    items: list[dict] = []
+
+    def record(label: str, text: str, expect_flag: bool, flagged: bool) -> None:
+        items.append({"label": label, "text": text, "expect_flag": expect_flag, "flagged": flagged,
+                      "ok": flagged == expect_flag})
+
+    for label, text in (
+        ("made-up mode count", f"{product.product_name} has {modes} brushing modes."),
+        ("made-up price", f"{product.product_name} costs ${price}."),
+        ("made-up percentage", f"{product.product_name} removes {pct}% more plaque."),
+    ):
+        record(label, text, True, bool(check_segment(text, corpus).issues))
+
+    denial = f"{pressure_product.product_name} does not have a pressure sensor."
+    record("denies a feature the product has", denial, True,
+           check_boolean_claim(denial, pressure_product, "pressure_sensing", True) is not None)
+
+    wrong = f"{other.product_name} has a timer."
+    record("names a product outside the question's scope", wrong, True,
+           bool(check_segment(wrong, corpus, allowed_product_ids={product.product_id}).issues))
+
+    true_price = f"{product.product_name} costs ${float(product.get('price')):.2f}."
+    record("true price", true_price, False, bool(check_segment(true_price, corpus, {product.product_id}).issues))
+
+    affirm = f"{pressure_product.product_name} has a pressure sensor."
+    record("true feature", affirm, False,
+           check_boolean_claim(affirm, pressure_product, "pressure_sensing", True) is not None)
+
+    false_items = [i for i in items if i["expect_flag"]]
+    true_items = [i for i in items if not i["expect_flag"]]
+    return {
+        "false_sentences": len(false_items),
+        "false_flagged": sum(1 for i in false_items if i["flagged"]),
+        "true_sentences": len(true_items),
+        "true_clean": sum(1 for i in true_items if not i["flagged"]),
+        "all_ok": all(i["ok"] for i in items),
+        "items": items,
+    }

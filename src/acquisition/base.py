@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .models import ProductRecord
+from .snapshot import snapshot_path, write_snapshot
 from .utils import (
     DEFAULT_USER_AGENT,
     FetchResult,
@@ -227,6 +228,11 @@ def save_record(record: ProductRecord, html_content: str, raw_dir: Path, html_di
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(html_content, encoding="utf-8")
     record.raw_html_path = portable_html_path(html_path, html_dir)
+
+    # Cleaned text snapshot: what evidence offsets are measured against.
+    text_path = snapshot_path(raw_dir.parent if raw_dir.name != "raw" else raw_dir, brand_key, f"{brand_key}_{slug}")
+    write_snapshot(text_path, [s.model_dump() for s in record.sections])
+    record.text_snapshot_path = portable_html_path(text_path, html_dir)
 
     json_path = record_json_path(raw_dir, brand_key, slug)
     json_path.parent.mkdir(parents=True, exist_ok=True)

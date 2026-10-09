@@ -57,7 +57,7 @@ class TestStatusAwareResponses:
             import pytest
             pytest.skip("no not_mentioned included_items product in current corpus")
         result = answer_query(f"What comes in the box for the {product.product_name}?", real_engine, no_llm=True)
-        assert f"The available source does not mention included items for {product.product_name}." in result.answer_text
+        assert f"The page does not mention included items for {product.product_name}." in result.answer_text
 
 
 class TestComparisonNeverUsesLLM:
@@ -125,19 +125,19 @@ class TestPromptInjectionPosture:
 class TestOutOfScopeAndUnscopedQueries:
     def test_amazon_price_request_is_refused_before_retrieval_runs(self, real_engine: RetrievalEngine):
         result = answer_query("What is the Amazon price of this toothbrush?", real_engine, no_llm=True)
-        assert "third-party retailers" in result.answer_text
+        assert "other retailers" in result.answer_text
         assert result.retrieval_result is None  # short-circuited before retrieve() ran
 
     def test_non_us_source_request_is_refused(self, real_engine: RetrievalEngine):
         result = answer_query("What does the UK Philips page say about this product?", real_engine, no_llm=True)
-        assert "Non-US" in result.answer_text
+        assert "other countries" in result.answer_text
 
     def test_open_ended_advice_question_gets_scope_statement_not_evidence_dump(self, real_engine: RetrievalEngine):
         """Regression: previously this fell through to a generic top-k
         evidence dump (including raw/garbled structured-data text in
         some cases) since no product/attribute was identified."""
         result = answer_query("Should I use this toothbrush if I have gum disease?", real_engine, no_llm=True)
-        assert "could not identify a specific product" in result.answer_text
+        assert "couldn't tell which product" in result.answer_text
         assert "priceCurrency" not in result.answer_text
         assert "itemCondition" not in result.answer_text
 
@@ -169,7 +169,7 @@ class TestMedicalAdviceScopeGuard:
         )
         assert fake_client.calls == []
         assert not result.used_llm
-        assert "cannot provide medical or dental advice" in result.answer_text
+        assert "can't give medical or dental advice" in result.answer_text
         assert result.retrieval_result is None  # short-circuited before retrieval ran at all
 
     def test_other_required_refusal_phrasings(self, real_engine: RetrievalEngine):
@@ -180,7 +180,7 @@ class TestMedicalAdviceScopeGuard:
             "Is this toothbrush medically recommended for my gums?",
         ):
             result = answer_query(query, real_engine, llm_client=fake_client)
-            assert "cannot provide medical or dental advice" in result.answer_text
+            assert "can't give medical or dental advice" in result.answer_text
             assert not result.used_llm
 
     def test_manufacturer_claims_question_about_gum_health_is_not_blocked(self, real_engine: RetrievalEngine):
@@ -211,4 +211,4 @@ class TestMedicalAdviceScopeGuard:
         phrasing here deliberately doesn't match the new advice-verb
         patterns, so the two mechanisms don't double up)."""
         result = answer_query("Should I use this toothbrush if I have gum disease?", real_engine, no_llm=True)
-        assert "could not identify a specific product" in result.answer_text
+        assert "couldn't tell which product" in result.answer_text

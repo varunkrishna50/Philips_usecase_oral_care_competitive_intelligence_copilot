@@ -41,6 +41,14 @@ class EvidenceRef(BaseModel):
     source_file: str
     source_section: Optional[str] = None
     source_section_index: Optional[int] = None
+    # Traceability (filled by traceability.annotate_evidence after the build):
+    # where the quote lives in a saved text snapshot, and how citable it is.
+    snapshot_file: Optional[str] = None
+    snapshot_kind: Optional[str] = None  # "sections" | "structured"
+    source_offset: Optional[int] = None
+    region: Optional[str] = None  # e.g. "Product description", "spec:Cleaning performance", "json_ld"
+    visibility: Optional[str] = None  # visible | expanded | hidden
+    evidence_tier: Optional[str] = None  # cited | cross_check_only
 
 
 class VariantOut(BaseModel):
@@ -121,6 +129,8 @@ class NormalizedProduct(BaseModel):
     money_back_guarantee_days: AttributeValue = Field(default_factory=not_mentioned)
     plaque_removal_claim: AttributeValue = Field(default_factory=not_mentioned)
     gum_health_claim: AttributeValue = Field(default_factory=not_mentioned)
+    brush_head_design: AttributeValue = Field(default_factory=not_mentioned)
+    battery_life_note: AttributeValue = Field(default_factory=not_mentioned)
     dimensions: AttributeValue = Field(default_factory=not_mentioned)
     weight: AttributeValue = Field(default_factory=not_mentioned)
     disclaimers: AttributeValue = Field(default_factory=not_mentioned)
@@ -215,6 +225,8 @@ ATTRIBUTE_FIELDS = [
     "money_back_guarantee_days",
     "plaque_removal_claim",
     "gum_health_claim",
+    "brush_head_design",
+    "battery_life_note",
     "dimensions",
     "weight",
     "disclaimers",

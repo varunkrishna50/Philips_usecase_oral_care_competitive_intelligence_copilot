@@ -1,0 +1,17 @@
+warning philips_hx4031-71: claim with a figure but no comparator: 'Gently removes 700% more plaque'
+warning philips_hx9911-90: claim with a figure but no comparator: 'Enjoy complete oral care with the Philips Sonicare DiamondClean Electr'
+warning philips_hx9911-90: claim with a figure but no comparator: 'Up to 100% more stain removal **'
+warning philips_hx9911-90: claim with a figure but no comparator: 'Deep cleaning needs a special approach and this C3 brush head uses a c'
+warning oralb_io-series-4-clean-gum-care-rechargeable-electric-toothbrush: app_connectivity=true but bluetooth_connectivity=not_stated
+warning oralb_io-series-4-rechargeable-electric-toothbrush: app_connectivity=true but bluetooth_connectivity=not_stated
+warning column listed_price_hidden: filled for 1/21 products (< 15%)
+warning column zone_interval_seconds: filled for 3/21 products (< 15%)
+warning column feel_and_noise: filled for 2/21 products (< 15%)
+warning column price_positioning: filled for 1/21 products (< 15%)
+warning column noise_db: filled for 1/21 products (< 15%)
+warning column battery_life_note: filled for 1/21 products (< 15%)
+warning column alias_group: filled for 2/21 products (< 15%)
+warning philips_hx7130-01.app_connectivity is blank but the visible text says: ...'tely recommend it.\n\nRead more\n\nCons\n\nNo app\n\nYes, I recommend this product\n\nThis re'...
+warning 43 evidence rows are cross_check_only (structured data, kept but not cited)
+
+0 error(s), 15 warning(s)

@@ -10,13 +10,27 @@ assigned here, after validation, in order of first appearance.
 from __future__ import annotations
 
 import re
+from decimal import Decimal
 from dataclasses import dataclass, field
 from typing import Optional
 
 from .models import ProductRecord, RetrievalDocument
 from .query_understanding import detect_products
 
-_NUMBER_RE = re.compile(r"\d+(?:\.\d+)?")
+# A figure as a whole token: 700, 5, 62,000 (thousands comma), 3.5. Compared as numbers, never as
+# substrings, so "5" is not supported by "15x" and "62000" matches "62,000".
+_NUMBER_RE = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?")
+
+QUOTE_MAX_CHARS = 240
+
+
+def _figures(text: str) -> set[str]:
+    """Whole-number tokens in canonical numeric form: "62,000" -> "62000", "$20.00" == "$20" -> "20"."""
+    out = set()
+    for m in _NUMBER_RE.findall(text):
+        value = Decimal(m.replace(",", ""))
+        out.add(format(value.normalize(), "f") if value == value.to_integral() else str(value.normalize()))
+    return out
 
 
 @dataclass
@@ -124,13 +138,12 @@ def validate_segment(
     # above already covers it). A literal substring removal of the full
     # name would miss this; matching by digit-token is robust to any
     # paraphrase of the name itself.
-    cited_product_name_numbers = {
-        number for ev in resolved for number in _NUMBER_RE.findall(ev.product_name)
-    }
-    for number in _NUMBER_RE.findall(segment.text):
+    cited_product_name_numbers = set().union(*[_figures(ev.product_name) for ev in resolved])
+    evidence_figures = [_figures(ev.evidence_text) | _figures(ev.shown_text) for ev in resolved]
+    for number in sorted(_figures(segment.text)):
         if number in cited_product_name_numbers:
             continue
-        if not any(number in ev.evidence_text for ev in resolved):
+        if not any(number in figures for figures in evidence_figures):
             reasons.append(f"numeric claim {number!r} in segment text is not supported by any cited evidence")
 
     if reasons:
@@ -151,17 +164,38 @@ def validate_segments(
     ]
 
 
-def assign_markers(validated_segments: list[ValidatedSegment]) -> dict[str, str]:
+def _quote_key(doc: RetrievalDocument) -> tuple[str, str]:
+    text = doc.shown_text.translate({0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"', 0x2011: "-", 0x2013: "-", 0x2014: "-", 0xA0: " "})
+    return (doc.product_id, re.sub(r"[^a-z0-9]+", " ", text.lower()).strip())
+
+
+def assign_markers(
+    validated_segments: list[ValidatedSegment],
+    evidence_by_id: Optional[dict[str, RetrievalDocument]] = None,
+) -> dict[str, str]:
     """evidence_id -> "S1"/"S2"/... in order of first appearance across
     VALID segments only -- an invalid (rejected) segment contributes no
-    citation markers at all."""
+    citation markers at all.
+
+    With ``evidence_by_id``, markers are numbered per distinct (product, quote): two records that hold
+    the same sentence share one marker, so the Sources list shows the quote once."""
     marker_by_id: dict[str, str] = {}
+    marker_by_key: dict[tuple[str, str], str] = {}
     for seg in validated_segments:
         if not seg.valid:
             continue
         for cid in seg.citation_ids:
-            if cid not in marker_by_id:
-                marker_by_id[cid] = f"S{len(marker_by_id) + 1}"
+            if cid in marker_by_id:
+                continue
+            doc = (evidence_by_id or {}).get(cid)
+            key = _quote_key(doc) if doc is not None else None
+            if key is not None and key in marker_by_key:
+                marker_by_id[cid] = marker_by_key[key]
+                continue
+            marker = f"S{len({m for m in marker_by_id.values()}) + 1}"
+            marker_by_id[cid] = marker
+            if key is not None:
+                marker_by_key[key] = marker
     return marker_by_id
 
 
@@ -170,19 +204,46 @@ def render_answer_text(validated_segments: list[ValidatedSegment], marker_by_id:
     for seg in validated_segments:
         if not seg.valid:
             continue
-        markers = " ".join(f"[{marker_by_id[cid]}]" for cid in seg.citation_ids)
+        markers = " ".join(f"[{m}]" for m in dict.fromkeys(marker_by_id[cid] for cid in seg.citation_ids))
         lines.append(f"{seg.text} {markers}".strip())
     return "\n\n".join(lines)
+
+
+def display_section(ev: RetrievalDocument) -> str:
+    """The page section to show next to a quote ("" when there is no meaningful one)."""
+    section = ev.source_section
+    if section and section != "structured_data":
+        return section
+    region = ev.source_region or ""
+    if region.startswith("spec:"):
+        return f"Technical specifications > {region[5:]}"
+    if region in ("feature_panels",):
+        return "Feature panels"
+    if region in ("", "structured_data", "visible_text", "rendered_text", "json_ld", "meta_price", "embedded_price"):
+        return ""
+    return region
 
 
 def render_sources_section(marker_by_id: dict[str, str], evidence_by_id: dict[str, RetrievalDocument]) -> str:
     if not marker_by_id:
         return ""
-    ordered = sorted(marker_by_id.items(), key=lambda kv: int(kv[1][1:]))
+    first_by_marker: dict[str, str] = {}
+    for evidence_id, marker in marker_by_id.items():
+        first_by_marker.setdefault(marker, evidence_id)  # one entry per marker (records sharing a quote share it)
+    ordered = sorted(((eid, m) for m, eid in first_by_marker.items()), key=lambda kv: int(kv[1][1:]))
     lines = ["Sources", ""]
+    # Two trailing spaces keep each line on its own line in Markdown renderers (Streamlit).
+    br = "  "
     for evidence_id, marker in ordered:
         ev = evidence_by_id[evidence_id]
-        lines.append(f"[{marker}] {ev.product_name} -- official product page")
+        lines.append(f"[{marker}] {ev.product_name} -- official product page{br}")
+        section = display_section(ev)
+        if section:
+            lines.append(f"Section: {section}{br}")
+        quote = " ".join(ev.shown_text.split())
+        if len(quote) > QUOTE_MAX_CHARS:
+            quote = quote[:QUOTE_MAX_CHARS].rsplit(" ", 1)[0] + " ..."
+        lines.append(f'Quote: "{quote}"{br}')
         lines.append(ev.source_url)
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

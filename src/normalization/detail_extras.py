@@ -15,12 +15,12 @@ import html
 import re
 from typing import Any, Optional
 
-from .detail_attributes import _add, _Page, _price_snippet, _supersede
+from .detail_attributes import _add, _Page, _price_snippets, _supersede
 from .disclaimers import link_disclaimers, marker_runs
 from .evidence import EvidenceStore
 from .filters import usable_sections
 from .models import AttributeValue, NormalizationWarning, not_mentioned
-from .topics import TOPICS, TopicSentence, collect_topic, own_side_facts
+from .topics import TOPICS, TopicSentence, collect_topic, fold, own_side_facts, product_tokens
 from .utils import combined_section_text, split_sentences
 
 EXTRA_ATTRIBUTES = [
@@ -43,6 +43,8 @@ EXTRA_ATTRIBUTES = [
     "intensity_details",
     "intensity_count",
     "battery_indicator",
+    "brush_head_design",
+    "battery_life_note",
 ]
 
 _PRICE_GROUP = ("price", "original_price", "price_after_discount", "discount_amount", "discount_pct")
@@ -131,7 +133,7 @@ def _philips_topic(ctx: _Ctx, topic: str, limit: int = 6) -> list[tuple[str, str
             sentence = sentence.strip()
             if len(sentence) < 20 or sentence not in page.unescaped:
                 continue
-            if sentence_re.search(sentence) or (whole and re.search(r"\d", sentence)):
+            if sentence_re.search(fold(sentence)) or (whole and re.search(r"\d", sentence)):
                 out.append((sentence, sentence))
     for cname, (obj, region) in page.chapters.items():
         if cname not in _PH_SPEC_CHAPTERS_FOR_TOPICS:
@@ -172,38 +174,504 @@ def apply_extras(
     _availability_and_price(ctx)
     _description(ctx)
     _modes(ctx)
+    _mode_count(ctx)
+    if ctx.page.brand == "Philips":
+        # flags first: the *_details prose below is gated on the flag being stated, and a
+        # Philips flag is often only found in a feature panel / spec row (hx7410, hx7421, hx9990 app)
+        _philips_flags(ctx)
     _topic_details(ctx)
+    _technology(ctx)
+    _intensity_count(ctx)
+    _replacement_reminder(ctx)
+    _battery_note(ctx)
+    if ctx.page.brand == "Philips":
+        _philips_replacement(ctx)
     _own_side(ctx)
+    _display_rule(ctx)
     _brush_head_fit(ctx)
     _brush_head_replacement(ctx)
     _claims_sentences(ctx)
     if ctx.page.brand == "Philips":
         _philips_specs(ctx)
+        _philips_rendered_fallbacks(ctx)
+        _philips_claims(ctx)
     _disclaimers(ctx)
     return ctx.out
 
 
+# --- display_type: a light ring / indicator is not a display ----------------------------------------------
+
+def _display_rule(ctx: _Ctx) -> None:
+    av = ctx.out["display_type"]
+    if av.status != "stated" or not isinstance(av.value, str):
+        return
+    body = re.sub(r"^\s*display\s*/\s*indicator\s*:\s*", "", av.value, flags=re.I)
+    if not re.search(r"\b(?:display|screen)\b", body, re.I):
+        _supersede(ctx.store, av)
+        ctx.out["display_type"] = not_mentioned()
+
+
+# --- Philips claims: qualitative claims, spec-row claims, headline plaque/gum claims -------------------------------
+
+_QUALITATIVE_CLAIM_RX = re.compile(
+    r"recommended sonic toothbrush brand by dental professionals worldwide|"
+    r"cleans your teeth better|"
+    r"specially designed to protect kids.{1,2} teeth and gums|"
+    r"buddy up, brush together, build great habits",
+    re.I,
+)
+_FIGURE = re.compile(r"\d+(?:\.\d+)?\s*(?:x|%)", re.I)
+
+
+def _philips_claims(ctx: _Ctx) -> None:
+    """Round out the Philips claim list from visible text:
+    * qualitative claims on pages with no figure claims (One, One For Kids);
+    * "Cleaning performance" spec rows whose figure no other claim states
+      (the 4100's 'Up to 5x more plaque removal*');
+    then pick the shortest headline plaque / gum claim from the list."""
+    out = ctx.out
+    cur = out["claims"]
+    values = list(cur.value) if cur.status == "stated" and isinstance(cur.value, list) else []
+    eids = list(cur.evidence_ids) if cur.status == "stated" else []
+    added = False
+
+    # qualitative claims (sentence or heading), once each
+    for idx, section in ctx.sections:
+        candidates = [section["heading"]] + [s for line in section["text"].split("\n") for s in split_sentences(line)]
+        for text in candidates:
+            text = text.strip()
+            m = _QUALITATIVE_CLAIM_RX.search(text)
+            if not m or len(text) > 200 or "?" in text:
+                continue
+            if any(fold(text) == fold(v) for v in values):
+                continue
+            eid = ctx.from_section("claims", text, text, idx)
+            if eid:
+                values.append(text)
+                eids.append(eid)
+                added = True
+
+    # spec-row claims with a figure not already stated elsewhere
+    def topic_of(t: str) -> str:
+        low = t.lower()
+        return "plaque" if "plaque" in low else "gums" if "gum" in low else "stain" if re.search(r"stain|whit", low) else "other"
+
+    def figure_keys(text: str) -> set[tuple[str, str]]:
+        figs = list(_FIGURE.finditer(text))
+        keys = set()
+        for i, m in enumerate(figs):
+            clause = text[m.start(): figs[i + 1].start() if i + 1 < len(figs) else len(text)]
+            prefix = text[figs[i - 1].end() if i else 0: m.start()]
+            keys.add((topic_of(clause) if topic_of(clause) != "other" else topic_of(prefix + clause),
+                      m.group(0).lower().replace(" ", "")))
+        return keys
+
+    seen = set().union(*[figure_keys(v) for v in values]) if values else set()
+    for iname, row_values, _snippet in _spec_rows(ctx, "Cleaning performance"):
+        for value in row_values:
+            m = _FIGURE.search(value)
+            if not m:
+                continue
+            key = (topic_of(f"{iname} {value}"), m.group(0).lower().replace(" ", ""))
+            if key in seen:
+                continue
+            av = ctx.structured("claims", f"{iname}: {value}", value, f"{iname}: {value}")
+            if av.status == "stated":
+                values.append(f"{iname}: {value}")
+                eids.extend(av.evidence_ids[:1])
+                seen.add(key)
+                added = True
+    if added:
+        out["claims"] = AttributeValue(value=values, status="stated", raw_value=None, evidence_ids=eids)
+
+    # headline plaque / gum claim = the shortest claim naming the topic with a figure
+    claims = out["claims"]
+    if claims.status != "stated":
+        return
+    for attribute, topic_rx in (("plaque_removal_claim", re.compile(r"\bplaque\b", re.I)),
+                                ("gum_health_claim", re.compile(r"healthier gums|gum health", re.I))):
+        picks = [(len(v), i, v) for i, v in enumerate(claims.value)
+                 if isinstance(v, str) and len(v) <= 120 and _FIGURE.search(v) and topic_rx.search(v)]
+        if not picks:
+            continue
+        picks.sort()
+        _, i, text = picks[0]
+        src = ctx.store.get(claims.evidence_ids[i]) if i < len(claims.evidence_ids) else None
+        if src is None or src.source_section_index is None or src.source_section == "structured_data":
+            continue
+        eid = ctx.from_section(attribute, text, text, src.source_section_index)
+        if eid:
+            ctx.replace(attribute, AttributeValue(value=text, status="stated", raw_value=None, evidence_ids=[eid]))
+
+
+def _spec_rows(ctx: _Ctx, chapter: str) -> list[tuple[str, list[str], str]]:
+    found = []
+    if chapter not in ctx.page.chapters:
+        return found
+    for item in ctx.page.chapters[chapter][0].get("csItem", []):
+        iname = str(item.get("csItemName", ""))
+        hit = ctx.page.spec_item(re.escape(iname), chapter)
+        if hit and hit[1]:
+            found.append((iname, hit[1], hit[2]))
+    return found
+
+
+# --- mode_count follows modes ---------------------------------------------------------------------------
+
+def _mode_count(ctx: _Ctx) -> None:
+    """mode_count = len(modes) when modes are known. A stated count that
+    disagrees is kept, with a warning."""
+    modes = ctx.d.get("modes") or []
+    detail = ctx.out.get("mode_details")
+    if not modes or detail is None or detail.status != "stated":
+        return
+    n = len(modes)
+    current = ctx.out["mode_count"]
+    philips_drawer = ctx.page.brand == "Philips" and "Modes" in ctx.page.chapters
+    if current.status == "stated" and current.value is not None:
+        if current.value != n:
+            ctx.warnings.append(NormalizationWarning(
+                product_id=ctx.product_id, code="mode_count_disagrees_with_modes", attribute="mode_count",
+                message=f"mode_count is stated as {current.value} but {n} modes are listed; the stated count is kept.",
+            ))
+            return
+        if not philips_drawer:
+            return
+        # same number, but cited from marketing copy: cite the drawer's Modes section instead
+    snippet = ctx.store.get(detail.evidence_ids[0]).evidence_text
+    # a count of the listed modes (derived), not a sentence from the site
+    ctx.replace("mode_count", ctx.structured("mode_count", n, snippet, f"{n} modes listed in the Modes section (derived count)"))
+
+
+# --- cleaning technology, brush head design (verbatim sentences only) ------------------------------------
+
+_TECH_PRIORITY = [
+    r"micro-?vibration", r"oscillat", r"sonic technology", r"sonicare technology",
+    r"next-generation sonicare", r"bristle movements|brush movements", r"magnetic (?:iO )?(?:system|technology)",
+]
+
+
+def _best_by_priority(candidates: list[tuple[str, object]], patterns: list[str]):
+    """candidates = [(text, payload)]; first candidate matching the earliest pattern."""
+    for pattern in patterns:
+        rx = re.compile(pattern, re.I)
+        for text, payload in candidates:
+            if rx.search(fold(text)):
+                return text, payload
+    return None
+
+
+def _rank_sentence(text: str, patterns: list[str], faq: bool, own: Optional[re.Pattern] = None) -> tuple:
+    """Lower is better: earliest-priority pattern, then a sentence that names
+    this very product, then non-FAQ over FAQ (the generic "Oral-B iO
+    electric toothbrushes feature ..." answer is the last resort), then more
+    matched patterns, then one that also names the brush head, then shorter."""
+    folded = fold(text)
+    hits = sum(1 for p in patterns if re.search(p, folded, re.I))
+    rank = next((i for i, p in enumerate(patterns) if re.search(p, folded, re.I)), len(patterns))
+    names_own = 0 if (own and own.search(text)) else 1
+    return (rank, names_own, 1 if faq else 0, -hits, 0 if re.search(r"brush head", folded, re.I) else 1, len(text))
+
+
+# short design phrase: "dentist-inspired round brush head" (never the whole sentence)
+_DESIGN_PHRASES = [
+    re.compile(r"dentist[-‐-― ]inspired round brush heads?(?: design)?", re.I),
+    re.compile(r"(?:unique |small )?round brush heads?", re.I),
+    re.compile(r"\bROUND brush heads\b"),
+]
+
+
+def _technology(ctx: _Ctx) -> None:
+    """The page's own sentence naming the motion/cleaning technology - never
+    inferred from other products. Plus the brush head design as a short phrase
+    ("dentist-inspired round brush head"), blank when the page has none."""
+    tokens = product_tokens(ctx.record["product_name"], ctx.product_id)
+    own = re.compile("|".join(re.escape(t) for t in tokens), re.I) if tokens else None
+    for topic, attribute, patterns in (
+        ("technology", "cleaning_technology", _TECH_PRIORITY),
+        ("brush_head_design", "brush_head_design", [r"round brush head", r"dentist[- ]inspired"]),
+    ):
+        matches = [re.compile(p, re.I) for p in patterns]
+        candidates: list[tuple[tuple, str, object]] = []
+        # page sections (description, lead paragraph, FAQ answers) for both brands
+        for sent in collect_topic(ctx.sections, topic, limit=40):
+            if len(sent.text) <= 400 and any(rx.search(fold(sent.text)) for rx in matches):
+                faq = ctx.record["sections"][sent.section_index]["heading"].strip().endswith("?")
+                candidates.append((_rank_sentence(sent.text, patterns, faq, own), sent.text, ("section", sent)))
+        if ctx.page.brand == "Philips":
+            for text, snippet in _philips_topic(ctx, topic, 40):
+                if len(text) <= 320 and any(rx.search(fold(text)) for rx in matches):
+                    candidates.append((_rank_sentence(text, patterns, False, own), text, ("structured", snippet)))
+        if not candidates:
+            continue
+        candidates.sort(key=lambda c: c[0])
+        if attribute == "brush_head_design":
+            done = False
+            for phrase_rx in _DESIGN_PHRASES:
+                for _, text, (kind, payload) in candidates:
+                    m = phrase_rx.search(text)
+                    if m and kind == "section":
+                        phrase = m.group(0)
+                        eid = ctx.from_section(attribute, phrase, phrase, payload.section_index)
+                        if eid:
+                            ctx.replace(attribute, AttributeValue(value=phrase, status="stated", raw_value=None, evidence_ids=[eid]))
+                            done = True
+                            break
+                if done:
+                    break
+            continue
+        _, text, (kind, payload) = candidates[0]
+        if kind == "section":
+            eid = ctx.from_section(attribute, text, text, payload.section_index)
+            if eid:
+                ctx.replace(attribute, AttributeValue(value=text, status="stated", raw_value=None, evidence_ids=[eid]))
+        else:
+            ctx.replace(attribute, ctx.structured(attribute, text, payload))
+
+
+# --- intensity count from page text ---------------------------------------------------------------------
+
+_WORD_NUM = {"two": 2, "three": 3, "four": 4, "five": 5}
+_INTENSITY_RX = re.compile(r"\b(\d+|two|three|four|five)\s+intensity\s+(?:settings?|levels?)\b", re.I)
+
+
+def _intensity_count(ctx: _Ctx) -> None:
+    if ctx.out["intensity_count"].status == "stated":
+        return
+    for idx, section in ctx.sections:
+        for line in section["text"].split("\n"):
+            m = _INTENSITY_RX.search(fold(line))
+            if m and "?" not in line:
+                raw = m.group(1).lower()
+                n = int(raw) if raw.isdigit() else _WORD_NUM[raw]
+                sentence = next((x.strip() for x in split_sentences(line) if m.group(0) in x), m.group(0))
+                eid = ctx.from_section("intensity_count", n, sentence, idx, raw_value=m.group(0))
+                if eid:
+                    ctx.out["intensity_count"] = AttributeValue(value=n, status="stated", raw_value=m.group(0), evidence_ids=[eid])
+                    return
+
+
+# --- replacement reminder: a DEVICE feature, never advice ----------------------------------------------------
+
+_REPLACE_RX = re.compile(r"\brefill change (?:alert|reminder)\b|\b(?:replace\w*|change)\b[^.]{0,40}\b(?:brush|refill)[- ]?(?:head)?s?\b|\b(?:brush|refill) heads?\b[^.]{0,40}\b(?:replace\w*|change)\b", re.I)
+_DEVICE_VERB_RX = re.compile(r"\b(?:signals?|alerts?|remind\w*|tracker|tracks?|indicator|monitors?|notif\w+|lets you know)\b", re.I)
+_ADVICE_RX = re.compile(r"\bevery\s+(?:\d+|three|3)\s+months?\b|\bor sooner\b|\bwe recommend\b|\bdentists? recommend", re.I)
+
+
+def _replacement_reminder(ctx: _Ctx) -> None:
+    """True only when a sentence says the product itself signals/tracks when
+    to replace the head ("...and signal when it's time to replace your brush
+    head"). Plain advice ("replace every 3 months or sooner if worn") never
+    sets it."""
+    current = ctx.out["replacement_reminder"]
+    if current.status == "stated" and not (
+        current.evidence_ids and len(ctx.store.get(current.evidence_ids[0]).evidence_text) < 30
+    ):
+        return  # (a bare label like 'REFILL CHANGE ALERT' is upgraded to the sentence that states it)
+    for idx, section in ctx.sections:
+        if re.search(r"warranty|featured", section["heading"], re.I):
+            continue
+        for line in section["text"].split("\n"):
+            for sentence in split_sentences(line):
+                sentence = sentence.strip()
+                if len(sentence) < 25 or "?" in sentence:
+                    continue
+                folded = fold(sentence)
+                m = _REPLACE_RX.search(folded)
+                if not m:
+                    continue
+                window = folded[max(0, m.start() - 90): m.end() + 90]
+                if not _DEVICE_VERB_RX.search(window):
+                    continue
+                if _ADVICE_RX.search(folded) and not re.search(r"\b(?:signals?|alerts?|remind\w*|tracker|indicator)\b", window, re.I):
+                    continue
+                eid = ctx.from_section("replacement_reminder", True, sentence, idx)
+                if eid:
+                    ctx.out["replacement_reminder"] = AttributeValue(value=True, status="stated", raw_value=None, evidence_ids=[eid])
+                    return
+
+
+# --- Oral-B battery text, verbatim ---------------------------------------------------------------------------------
+
+def _battery_note(ctx: _Ctx) -> None:
+    if ctx.page.brand != "Oral-B":
+        return
+    rx = re.compile(r"charge lasts|\bbattery\b[^.]{0,60}\b\d+\s*(?:days?|weeks?)|\b\d+\s*(?:days?|weeks?)\b[^.]{0,40}\bbattery", re.I)
+    charging_time = re.compile(r"\b(?:charging|charge)\b[^.]{0,40}\btakes?\b[^.]{0,20}\d+\s*hours?", re.I)
+    for s in collect_topic(ctx.sections, "battery", limit=12):
+        # "Charging a low battery takes about 3 hours" is charge time, not runtime
+        if rx.search(s.text) and not charging_time.search(s.text):
+            eid = ctx.from_section("battery_life_note", s.text, s.text, s.section_index)
+            if eid:
+                ctx.out["battery_life_note"] = AttributeValue(value=s.text, status="stated", raw_value=None, evidence_ids=[eid])
+                return
+
+
+# --- Philips flags from feature panels + spec rows -----------------------------------------------------------------
+
+_PHILIPS_FLAG_RX = {
+    "timer": re.compile(r"timer|pacer", re.I),
+    "app_connectivity": re.compile(r"\bapp\b", re.I),
+    "bluetooth_connectivity": re.compile(r"bluetooth", re.I),
+    "pressure_sensing": re.compile(r"pressure", re.I),
+}
+
+
+def _philips_flags(ctx: _Ctx) -> None:
+    """After the generic pass: a flag the marketing sections missed is still
+    True when a feature panel or specification row states it. Evidence is that
+    exact text (a verbatim sentence, else the spec row's JSON)."""
+    page = ctx.page
+    features = _philips_features(page)
+    for attribute, rx in _PHILIPS_FLAG_RX.items():
+        if ctx.out[attribute].status == "stated":
+            continue
+        hit = None
+        for item in features:
+            for text in [str(item.get("featureName") or ""), str(item.get("featureLongDescription") or "")] + split_sentences(
+                str(item.get("featureGlossary") or "")
+            ):
+                text = text.strip()
+                if len(text) >= 12 and rx.search(text) and text in page.unescaped:
+                    hit = (text, text)
+                    break
+            if hit:
+                break
+        if hit is None:
+            for cname, (obj, _region) in page.chapters.items():
+                if cname in ("Modes", "Intensities"):
+                    continue
+                for item in obj.get("csItem", []):
+                    iname = str(item.get("csItemName", ""))
+                    values = " ".join(str(v.get("csValueName", "")) for v in item.get("csValue", []))
+                    if rx.search(iname) or rx.search(values) or (attribute != "pressure_sensing" and rx.search(cname)):
+                        found = page.spec_item(re.escape(iname), cname)
+                        if found and found[2]:
+                            hit = (f"{cname}: {iname} - {values}".strip(), found[2])
+                            break
+                if hit:
+                    break
+        if hit is None and attribute == "timer":
+            # pages without a spec row describe the pacing in prose ("The One buzzes
+            # every 30 seconds ... A longer buzz at 2 minutes"); quote the rendered text
+            m = re.search(r"[^\n.]*\bbuzz\w*\s+every\s+\d+\s+seconds[^\n.]*\.?", page.rendered)
+            if m:
+                hit = (m.group(0).strip(), m.group(0).strip())
+                if ctx.out["timer_description"].status != "stated":
+                    ctx.out["timer_description"] = ctx.structured("timer_description", hit[0], hit[1])
+        if hit:
+            text, snippet = hit
+            ctx.replace(attribute, ctx.structured(attribute, True, snippet, text))
+
+
+def _philips_rendered_fallbacks(ctx: _Ctx) -> None:
+    """Facts the rendered page states in plain text but the spec table lacks
+    (the One / One For Kids have no spec table rows for them)."""
+    r, out = ctx.page.rendered, ctx.out
+    if not r:
+        return
+    if out["warranty_years"].status != "stated":
+        m = re.search(r"^(\d+)[\s-]*year warranty\s*$", r, re.I | re.M)
+        if m:
+            ctx.replace("warranty_years", ctx.structured("warranty_years", int(m.group(1)), m.group(0).strip(), m.group(0).strip()))
+    if out["brush_movements_per_min"].status != "stated":
+        m = re.search(r"\b(\d{1,3}(?:,\d{3})+)\s*micro-?vibrations?(?:\s+per\s+minute)?", r, re.I)
+        if m:
+            ctx.replace(
+                "brush_movements_per_min",
+                ctx.structured("brush_movements_per_min", int(m.group(1).replace(",", "")), m.group(0), m.group(0)),
+            )
+
+
+def _philips_replacement(ctx: _Ctx) -> None:
+    """Philips: replacement_reminder is true only when the Replacement
+    Reminder spec row carries a visible statement ("... lets you know when to
+    replace your brush head"), never because of the row label alone."""
+    page, out = ctx.page, ctx.out
+    hit = page.spec_item(r"Replacement Reminder")
+    old = out["replacement_reminder"]
+    if hit and hit[1]:
+        text = hit[1][0].strip()
+        if re.search(r"replace", text, re.I) and _DEVICE_VERB_RX.search(text):
+            new = ctx.structured("replacement_reminder", True, text, f"Replacement Reminder: {text}")
+            if new.status == "stated":
+                ctx.replace("replacement_reminder", new)
+                return
+    if old.status == "stated":
+        _supersede(ctx.store, old)
+        out["replacement_reminder"] = not_mentioned()
+
+
 # --- availability + price visibility ------------------------------------------------------------
 
-def _availability_and_price(ctx: _Ctx) -> None:
-    d, page = ctx.d, ctx.page
-    state = d.get("availability")
-    if not state:
-        return
-    label = {"in_stock": "In stock", "out_of_stock": "Out of stock"}.get(state, state)
+_STATE_LABEL = {"in_stock": "In stock", "out_of_stock": "Out of stock"}
+
+
+def _visible_availability(page: _Page) -> Optional[tuple[str, str]]:
+    """(state, label) read from the visible buy box, or None when the page shows neither cue.
+
+    Oral-B: ``Add to cart ($329.99)`` -> in stock; no add-to-cart but ``Find A Retailer``
+    in the buy box -> out of stock. "Out of stock" is our reading of "Find A Retailer";
+    the site does not write it, so the label is always stored next to the status.
+    Philips: the rendered page offers "Add to cart"."""
+    rendered = page.rendered
     if page.brand == "Philips":
-        m = re.search(r'"availability":\{"status":"[A-Z_]+"', page.unescaped)
-    else:
-        m = re.search(r'"availability"\s*:\s*"https://schema\.org/[A-Za-z]+"', page.html)
+        return ("in_stock", "Add to cart") if "Add to cart" in rendered else None
+    marker = "=== Buy box ==="
+    if marker not in rendered:
+        return None
+    box = rendered.split(marker, 1)[1]
+    m = re.search(r"^.*Add to cart.*$", box, re.I | re.M)
     if m:
-        ctx.out["availability"] = ctx.structured("availability", label, m.group(0), m.group(0))
-    if state == "out_of_stock" and d.get("price_displayed") is False:
+        return "in_stock", m.group(0).strip()
+    m = re.search(r"^.*Find A Retailer.*$", box, re.I | re.M)
+    if m:
+        return "out_of_stock", m.group(0).strip()
+    return None
+
+
+def _availability_and_price(ctx: _Ctx) -> None:
+    """Availability is cited from visible text. Page data (JSON-LD / store data) is only a
+    cross-check: when the rendered page is available and shows neither cue the status is
+    not_stated, and a disagreement with the page data is reported as a warning."""
+    d, page = ctx.d, ctx.page
+    json_state = d.get("availability")
+    visible = _visible_availability(page)
+    has_snapshot = bool(page.rendered)
+    if visible:
+        state, raw = visible
+        ctx.out["availability"] = ctx.structured("availability", _STATE_LABEL.get(state, state), raw, raw)
+        if json_state and json_state != state:
+            ctx.warnings.append(NormalizationWarning(
+                product_id=ctx.product_id, code="availability_page_data_disagrees", attribute="availability",
+                message=f"The visible page shows {raw!r} ({_STATE_LABEL.get(state, state)}) but the page data says {json_state}; the visible page is used.",
+            ))
+    elif has_snapshot and page.brand == "Oral-B":
+        state = None
+        if json_state:
+            ctx.warnings.append(NormalizationWarning(
+                product_id=ctx.product_id, code="availability_not_visible", attribute="availability",
+                message=f"The visible buy box shows neither 'Add to cart' nor 'Find A Retailer', so availability is not_stated (page data says {json_state}).",
+            ))
+    else:
+        # no rendered snapshot for this record: page data only, kept as cross-check evidence
+        state = json_state
+        if state:
+            label = _STATE_LABEL.get(state, state)
+            if page.brand == "Philips":
+                m = re.search(r'"availability":\{"status":"[A-Z_]+"', page.unescaped)
+            else:
+                m = re.search(r'"availability"\s*:\s*"https://schema\.org/[A-Za-z]+"', page.html)
+            if m:
+                ctx.out["availability"] = ctx.structured("availability", label, m.group(0), m.group(0))
+    state = visible[0] if visible else state
+    if state == "out_of_stock" and (d.get("price_displayed") is False or visible):
         hidden = ctx.out["original_price"].value if ctx.out["original_price"].status == "stated" else None
         for name in _PRICE_GROUP:
             if ctx.out[name].status == "stated":
                 _supersede(ctx.store, ctx.out[name])
                 ctx.out[name] = not_mentioned()
-        snippet = _price_snippet(page)
+        snippet = _price_snippets(page)[0]
         if hidden is not None and snippet:
             # Keep the number, but only as an explicitly-labelled hidden value.
             ctx.out["listed_price_hidden"] = ctx.structured(
@@ -279,13 +747,14 @@ def _topic_details(ctx: _Ctx) -> None:
         pool = collect_topic(ctx.sections, "battery") + collect_topic(ctx.sections, "charging")
         rx = re.compile(
             r"(?:takes?|in|within)\s+(?:just\s+|only\s+|about\s+|around\s+|approximately\s+|~)?(\d+(?:\.\d+)?)\s*hours?|"
-            r"(\d+(?:\.\d+)?)[- ]hours?\s+(?:fast\s+)?charg",
+            r"(\d+(?:\.\d+)?)[- ]hours?\s+(?:fast\s+)?charg|"
+            r"\b(\d+(?:\.\d+)?)H\s+fast\s+charger\b",
             re.I,
         )
         for s in pool:
             m = rx.search(s.text)
             if m:
-                value = float(m.group(1) or m.group(2))
+                value = float(m.group(1) or m.group(2) or m.group(3))
                 eid = ctx.from_section("charge_time_hours", value, s.text, s.section_index, raw_value=m.group(0))
                 if eid:
                     out["charge_time_hours"] = AttributeValue(value=value, status="stated", raw_value=m.group(0), evidence_ids=[eid])
@@ -318,9 +787,45 @@ _OWN_FIELD_TO_ATTR = {
 }
 
 
+_BOTH_FLAG_RX = {
+    "bluetooth_connectivity": re.compile(r"bluetooth", re.I),
+    "app_connectivity": re.compile(r"\bapp\b", re.I),
+    "timer": re.compile(r"\btimer\b", re.I),
+    "pressure_sensing": re.compile(r"pressure", re.I),
+}
+
+
+def _both_models_flags(ctx: _Ctx) -> None:
+    """"Both models connect with the Oral-B app via Bluetooth" in this
+    product's own comparison FAQ is a statement about this product too."""
+    tokens = product_tokens(ctx.record["product_name"], ctx.product_id)
+    if not tokens:
+        return
+    number = re.search(r"(\d+)\s*$", tokens[0])  # "iO Series 6" -> 6
+    # The heading names this model either in full ("iO Series 6") or as the
+    # second number of "Series 5 and 6".
+    own = re.compile("|".join(re.escape(t) for t in tokens) + (rf"|\band {number.group(1)}\b" if number else ""), re.I)
+    for idx, section in enumerate(ctx.record["sections"]):
+        heading = section["heading"]
+        if not own.search(heading) or not re.search(r"difference|\bvs\b|versus|compar", heading, re.I):
+            continue
+        for line in section["text"].split("\n"):
+            for sentence in split_sentences(line):
+                sentence = sentence.strip()
+                if not re.match(r"both (?:models|brushes|products)\b", sentence, re.I):
+                    continue
+                for attribute, rx in _BOTH_FLAG_RX.items():
+                    if ctx.out[attribute].status != "stated" and rx.search(sentence):
+                        eid = ctx.from_section(attribute, True, sentence, idx, raw_value="stated for both compared models")
+                        if eid:
+                            ctx.out[attribute] = AttributeValue(
+                                value=True, status="stated", raw_value="stated for both compared models", evidence_ids=[eid])
+
+
 def _own_side(ctx: _Ctx) -> None:
     if ctx.page.brand != "Oral-B":
         return
+    _both_models_flags(ctx)
     facts = own_side_facts(list(enumerate(ctx.record["sections"])), ctx.record["product_name"], ctx.product_id)
     for fact in facts:
         field, text, idx = fact["field"], fact["text"], fact["section_index"]
@@ -469,12 +974,9 @@ def _philips_specs(ctx: _Ctx) -> None:
         if re.fullmatch(r"battery indicator", iname, re.I):
             ctx.replace("battery_indicator", ctx.structured("battery_indicator", values[0], snippet, f"{iname}: {values[0]}"))
 
-    # specifications = the actual spec rows
-    skip = {"Modes", "Intensities", "Items included", "Sonicare app", "Cleaning performance", "Smart sensor technology"}
+    # specifications = every row of every section in the Technical Specifications drawer (no name list)
     texts, eids = [], []
     for cname in chapters:
-        if cname in skip:
-            continue
         for iname, values, snippet in rows(cname):
             text = html.unescape(f"{cname}: {iname} - {'; '.join(values)}")
             av = ctx.structured("specifications", text, snippet)
@@ -522,6 +1024,12 @@ def _philips_specs(ctx: _Ctx) -> None:
             ctx.replace(
                 "intensity_levels",
                 ctx.structured("intensity_levels", spec_names, spec_rows[0][2], None, [r[2] for r in spec_rows[1:]]),
+            )
+            # the count is the number of listed levels (never left blank beside the levels)
+            ctx.replace(
+                "intensity_count",
+                ctx.structured("intensity_count", len(spec_names), spec_rows[0][2], f"{len(spec_names)} intensity levels listed",
+                               [r[2] for r in spec_rows[1:]]),
             )
 
 

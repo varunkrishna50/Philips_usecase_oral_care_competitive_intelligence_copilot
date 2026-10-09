@@ -42,8 +42,8 @@ class TestOfflineModeNeverCallsRealApi:
 
 
 class TestOfflineRunProducesExpectedShape:
-    def test_runs_all_26_cases(self, offline_results):
-        assert offline_results["aggregate_metrics"]["total_cases"] == 26
+    def test_runs_all_36_cases(self, offline_results):
+        assert offline_results["aggregate_metrics"]["total_cases"] == 36
 
     def test_poisoned_evidence_case_is_not_exercised_offline(self, offline_results):
         case = next(c for c in offline_results["test_cases"] if c["id"] == "injection_evidence_026")

@@ -15,6 +15,12 @@ class Section(BaseModel):
 
     heading: str
     text: str
+    # "visible"  - shown on the page as loaded.
+    # "expanded" - collapsed by default but shopper-reachable (FAQ answers,
+    #              product-description / what's-in-the-box / warranty tabs,
+    #              spec and feature panels once opened).
+    # Hidden blocks (internal merchandising tags) are never sections.
+    visibility: str = "visible"
 
 
 class VariantRef(BaseModel):
@@ -95,6 +101,20 @@ class ProductDetails(BaseModel):
     dimensions: Optional[str] = None
     weight: Optional[str] = None
 
+    # single | bundle. Bundles (2+ handles, or "Twin/Dual/Duo pack") are
+    # excluded from the comparison by policy; the field is kept for audit.
+    product_type: str = "single"
+    handle_count: Optional[int] = None
+    # Hidden merchandising text (gift-card blurb, TextFeatureN, Shop By
+    # Feature). Never evidence; kept only so reviewers can see what was ignored.
+    merchandising_tags: list[str] = Field(default_factory=list)
+    # Which colour/SKU page the values were read from.
+    source_variant_sku: Optional[str] = None
+    source_variant_label: Optional[str] = None
+    # Numeric facts read from a sibling variant page when they differ:
+    # {"brush_movements_per_min": {"HX3681_03": 31000, "HX3681_04": 62000}, ...}
+    variant_values: dict[str, dict[str, Any]] = Field(default_factory=dict)
+
     # "in_stock" | "out_of_stock" | other schema.org availability, as the page states it.
     availability: Optional[str] = None
     # The visible lead paragraph under the product title (Oral-B div.short-description).
@@ -157,6 +177,11 @@ class ProductRecord(BaseModel):
     scrape_method: str  # "requests" | "requests_cache" | "playwright"
 
     raw_html_path: str
+    # Cleaned text snapshot (data/raw/text/<brand>/<id>.txt) offsets refer to.
+    text_snapshot_path: Optional[str] = None
+    # Philips only: browser-rendered visible text (price, rating, opened spec
+    # table) saved by scripts/capture_rendered_text.py.
+    rendered_text_path: Optional[str] = None
     content_hash: str
 
     raw_text: str

@@ -36,6 +36,17 @@ class RetrievalDocument:
     # attribute/evidence/section) -- kept separate from evidence_text,
     # which stays the literal verbatim Step 2 evidence.
     retrieval_text: str = ""
+    # Where on the page the quote sits when source_section is the generic
+    # "structured_data": the section heading or "spec:<chapter>". Display only
+    # (never part of retrieval_text, so the index does not depend on it).
+    source_region: Optional[str] = None
+    # Readable rendering of evidence_text for display and for the LLM (a Philips spec-row
+    # snippet is JSON in evidence_text). Empty = same as evidence_text.
+    display_text: str = ""
+
+    @property
+    def shown_text(self) -> str:
+        return self.display_text or self.evidence_text
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -52,6 +63,8 @@ class RetrievalDocument:
             "source_section": self.source_section,
             "source_file": self.source_file,
             "retrieval_text": self.retrieval_text,
+            "source_region": self.source_region,
+            "display_text": self.display_text,
         }
 
     @classmethod

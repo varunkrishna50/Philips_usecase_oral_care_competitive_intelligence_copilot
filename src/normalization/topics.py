@@ -56,6 +56,17 @@ TOPICS: dict[str, dict[str, str]] = {
         "sentence": r"\bcharger\b|\bcharging (?:base|station|stand|dock)\b|\bplug(?:ged)?\b|\bdock(?:ed)?\b|\bUSB\b",
         "heading": r"how.{0,15}charge|charger|charging",
     },
+    "technology": {
+        "sentence": (
+            r"micro-?vibrations?|oscillat\w+|\bsonic technology\b|sonicare technology|next-generation sonicare|"
+            r"\b(?:bristle|brush) movements\b|magnetic (?:iO )?(?:system|technology)"
+        ),
+        "heading": r"technology|cleaning action|\bmotor\b",
+    },
+    "brush_head_design": {
+        "sentence": r"round brush head|dentist[- ]inspired",
+        "heading": r"brush head design",
+    },
     "coverage": {
         "sentence": r"coverage|position detection|tracks? where you brush|teeth tracking|mouth zones?",
         "heading": r"coverage|tracking",
@@ -74,6 +85,20 @@ _BOILERPLATE = re.compile(
     re.I,
 )
 _SKIP_HEADINGS = re.compile(r"^(?:sort by|page content|reviews?|you may also like|warranty information|featured in)", re.I)
+
+
+# One-to-one character folding used ONLY for matching (non-breaking hyphens,
+# dashes, curly quotes, nbsp -> ASCII). Positions are preserved, so a match on
+# fold(text) is a valid span of the original; stored evidence keeps the page's
+# original characters.
+_FOLD = {
+    0x2010: "-", 0x2011: "-", 0x2012: "-", 0x2013: "-", 0x2014: "-", 0x2015: "-", 0x2212: "-",
+    0x2018: "'", 0x2019: "'", 0x201C: '"', 0x201D: '"', 0x00A0: " ",
+}
+
+
+def fold(text: str) -> str:
+    return text.translate(_FOLD)
 
 
 @dataclass
@@ -141,12 +166,12 @@ def collect_topic(sections, topic: str, limit: Optional[int] = None) -> list[Top
         if _SKIP_HEADINGS.match(heading.strip()):
             continue
         is_question = heading.strip().endswith("?")
-        take_whole = bool(is_question and heading_re.search(heading))
+        take_whole = bool(is_question and heading_re.search(fold(heading)))
         bucket = description if heading == "Product description" else faq if is_question else other
         for sentence in _sentences_of(section):
             if sentence.endswith("?") or len(sentence) < 25 or _BOILERPLATE.search(sentence):
                 continue
-            if take_whole or sentence_re.search(sentence):
+            if take_whole or sentence_re.search(fold(sentence)):
                 bucket.append(TopicSentence(sentence, idx, heading))
     # FAQ answers first (they are the most specific), then the description
     # bullets, then anything else on the page.

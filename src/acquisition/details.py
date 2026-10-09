@@ -246,3 +246,47 @@ def extract_footnotes(lines: list[str], section: Optional[str] = None) -> list[d
         if m and "*" in line[: m.start()]:
             found.append({"marker": m.group("marker"), "text": m.group("text").strip(), "section": section})
     return found
+
+
+
+# ---------------------------------------------------------------------------
+# Bundles: count HANDLES only (a handle + 2 brush heads is one product)
+# ---------------------------------------------------------------------------
+
+_HANDLE_WORD = re.compile(r"\b(?:handles?|toothbrush(?:es)?)\b", re.I)
+_NOT_A_HANDLE = re.compile(
+    r"brush[- ]?heads?|\bheads?\b|refill|travel|\bcase\b|pouch|charger|charging|\bstand\b|\bbase\b|"
+    r"\bcord\b|batter(?:y|ies)|guide|manual|brochure|toothpaste|floss",
+    re.I,
+)
+_BUNDLE_NAME = re.compile(
+    r"\b(?:twin|dual|duo|double)[- ]?pack\b|\b(?:2|two)[- ]?pack\b|\bbundle\b|\bvalue pack\b", re.I
+)
+
+
+def _quantity(item: str) -> int:
+    m = re.match(r"\s*\((\d+)\)", item) or re.match(r"\s*(\d+)\s*[x×]\s", item)
+    if m:
+        return int(m.group(1))
+    m = re.search(r":\s*(\d+)\b", item)
+    return int(m.group(1)) if m else 1
+
+
+def count_handles(box_items: list[str]) -> int:
+    total = 0
+    for item in box_items:
+        if _HANDLE_WORD.search(item) and not _NOT_A_HANDLE.search(item):
+            total += _quantity(item)
+    return total
+
+
+def classify_bundle(product_name: str, box_items: list[str]) -> tuple[str, int, Optional[str]]:
+    """(product_type, handle_count, reason). A product is a bundle when its
+    name says Twin/Dual/Duo pack or bundle, or its box holds 2+ handles.
+    Brush heads, cases and chargers are never counted."""
+    handles = count_handles(box_items)
+    if _BUNDLE_NAME.search(product_name or ""):
+        return "bundle", handles, f"name says bundle/multi-pack ({handles} handle(s) in the box)"
+    if handles >= 2:
+        return "bundle", handles, f"{handles} handles in the box"
+    return "single", handles, None

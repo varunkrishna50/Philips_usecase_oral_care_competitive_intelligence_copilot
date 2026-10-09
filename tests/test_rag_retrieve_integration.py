@@ -136,5 +136,5 @@ class TestRealRetrieval:
         from src.rag.config import RETRIEVAL_DOCUMENTS_PATH
         import json
 
-        production_ids = {d["document_id"] for d in json.loads(RETRIEVAL_DOCUMENTS_PATH.read_text())}
+        production_ids = {d["document_id"] for d in json.loads(RETRIEVAL_DOCUMENTS_PATH.read_text(encoding="utf-8"))}
         assert poisoned.document_id not in production_ids

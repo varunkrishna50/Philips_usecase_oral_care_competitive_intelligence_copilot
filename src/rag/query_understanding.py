@@ -7,10 +7,14 @@ product(s)/attribute(s) the query is actually about.
 """
 from __future__ import annotations
 
+import csv
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
+from .config import PRODUCT_ALIASES_CSV
 from .models import ProductRecord
 
 ProductMatchKind = Literal["matched", "ambiguous", "not_in_corpus", "none"]
@@ -88,7 +92,7 @@ def _known_product_numbers(products: list[ProductRecord]) -> set[str]:
     return known
 
 
-def detect_products(query: str, products: list[ProductRecord]) -> ProductMatch:
+def _detect_products_by_name(query: str, products: list[ProductRecord]) -> ProductMatch:
     """Deterministic product recognition over the actual catalog (3A.8).
 
     - A unique best-scoring match -> "matched" (exact product/model
@@ -147,6 +151,121 @@ def detect_products(query: str, products: list[ProductRecord]) -> ProductMatch:
     # Spans multiple brands (or is nearly the whole catalog): a generic
     # category phrase like "electric toothbrush", not a specific family.
     return ProductMatch(kind="none", candidates=[], match_len=raw_len)
+
+
+# ---------------------------------------------------------------------------
+# Alias fallback: names people actually type ("Sonicare 9900", "HX9990", "3100",
+# "iO6", "One for Kids") are not always a contiguous run of the catalog name
+# ("Sonicare Prestige 9900 Rechargeable Toothbrush"). data/processed/product_aliases.csv
+# (written by Step 2) lists them; it is consulted ONLY when the name match found
+# no product, so exact name matches and the not-in-corpus rule are unchanged.
+# ---------------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def _alias_table(path: str = str(PRODUCT_ALIASES_CSV)) -> tuple[dict, ...]:
+    """Every alias row of product_aliases.csv as {tokens, product_id, ambiguous, alias_type} (() if there is no file)."""
+    file = Path(path)
+    if not file.exists():
+        return ()
+    rows = []
+    with file.open(encoding="utf-8-sig", newline="") as fh:
+        for row in csv.DictReader(fh):
+            tokens = tuple(normalize_tokens(row.get("normalized_alias", "")))
+            if tokens and any(t not in _GENERIC_MATCH_TOKENS for t in tokens):
+                rows.append({
+                    "tokens": tokens, "product_id": row["product_id"],
+                    "ambiguous": row.get("ambiguous") == "true", "alias_type": row.get("alias_type", ""),
+                })
+    return tuple(rows)
+
+
+def _load_alias_rows() -> tuple[tuple[tuple[str, ...], str], ...]:
+    """((alias tokens), product_id) for every alias in the file ((), if there is none)."""
+    return tuple((r["tokens"], r["product_id"]) for r in _alias_table())
+
+
+def _catalog_names() -> dict[str, tuple[str, ...]]:
+    return {r["product_id"]: r["tokens"] for r in _alias_table() if r["alias_type"] == "name"}
+
+
+def _names_product(tokens: list[str], other_id: str, this_id: str) -> bool:
+    """Does the text name ``other_id`` specifically (full name, an unambiguous alias, or a word that
+    only that product's name has, such as a colour)?"""
+    table = _alias_table()
+    names = _catalog_names()
+    other_name = names.get(other_id, ())
+    if other_name and _contains_phrase(tokens, other_name):
+        return True
+    if any(r["product_id"] == other_id and not r["ambiguous"] and _contains_phrase(tokens, r["tokens"]) for r in table):
+        return True
+    distinguishing = {t for t in other_name if t not in set(names.get(this_id, ())) and t not in _GENERIC_MATCH_TOKENS
+                      and not t.isdigit()}
+    return any(t in tokens for t in distinguishing)
+
+
+def product_mentioned(text: str, product_id: str, product_name: str) -> bool:
+    """True if ``text`` names the product: its full catalog name or a model/series alias.
+
+    A shared alias ("iO4" belongs to two pages) is accepted only when the text does not also name
+    another page that shares it, so "the iO4 has an app" counts for the Clean & Gum Care page but an
+    answer that also says "Matte White" (the other iO4's colour) does not."""
+    tokens = normalize_tokens(text)
+    if _contains_phrase(tokens, tuple(normalize_tokens(product_name))):
+        return True
+    table = _alias_table()
+    hit_ambiguous = []
+    for row in table:
+        if row["product_id"] == product_id and _contains_phrase(tokens, row["tokens"]):
+            if not row["ambiguous"]:
+                return True
+            hit_ambiguous.append(row["tokens"])
+    if not hit_ambiguous:
+        return False
+    others = {r["product_id"] for r in table
+              if r["ambiguous"] and r["tokens"] in hit_ambiguous and r["product_id"] != product_id}
+    return not any(_names_product(tokens, other, product_id) for other in others)
+
+
+def _contains_phrase(query_tokens: list[str], phrase: tuple[str, ...]) -> bool:
+    n = len(phrase)
+    return any(tuple(query_tokens[i:i + n]) == phrase for i in range(len(query_tokens) - n + 1))
+
+
+def _match_by_alias(query: str, products: list[ProductRecord]) -> ProductMatch | None:
+    by_id = {p.product_id: p for p in products}
+    query_tokens = normalize_tokens(query)
+    best_len, hits = 0, {}
+    for tokens, product_id in _load_alias_rows():
+        if product_id not in by_id or not _contains_phrase(query_tokens, tokens):
+            continue
+        if len(tokens) > best_len:
+            best_len, hits = len(tokens), {}
+        if len(tokens) == best_len:
+            hits[product_id] = by_id[product_id]
+    if not hits:
+        return None
+    candidates = sorted(hits.values(), key=lambda p: p.product_id)
+    if len(candidates) == 1:
+        return ProductMatch(kind="matched", candidates=candidates, match_len=best_len)
+    if len({p.brand for p in candidates}) == 1 and len(candidates) <= MAX_GENERIC_TIE:
+        return ProductMatch(kind="ambiguous", candidates=candidates, match_len=best_len)
+    return None
+
+
+def detect_products(query: str, products: list[ProductRecord]) -> ProductMatch:
+    """Name match first (3A.8); the alias list only when that found no product."""
+    match = _detect_products_by_name(query, products)
+    if match.kind in ("none", "ambiguous"):
+        by_alias = _match_by_alias(query, products)
+        if by_alias is not None:
+            if match.kind == "none":
+                return by_alias
+            # "Oral-B iO10" ties every Oral-B page on the brand words alone; the alias narrows it
+            # (the tie came from brand/category words only; the alias names a model)
+            same_brand = {p.brand for p in by_alias.candidates} == {p.brand for p in match.candidates}
+            if same_brand and len(by_alias.candidates) < len(match.candidates):
+                return by_alias
+    return match
 
 
 # ---------------------------------------------------------------------------
@@ -229,13 +348,25 @@ _COMPILED_ATTRIBUTE_PATTERNS = {
 }
 
 
+_PRODUCT_NAME_RECHARGEABLE_RE = re.compile(r"\brechargeable\b(?=\s+(?:electric\s+|power\s+|sonic\s+)?(?:tooth)?brush)", re.I)
+_DESCRIBE_RE = re.compile(r"\bdescribe\b|tell me about", re.I)
+
+
 def detect_attributes(query: str) -> list[str]:
     """Every Step 2 attribute whose natural-language synonyms appear in
     the query, in ATTRIBUTE_PATTERNS's declaration order (stable)."""
+    # "Rechargeable" in a product's own name ("...Rechargeable Electric Toothbrush, Cosmic Black")
+    # is not a question about battery life or charging.
+    query = _PRODUCT_NAME_RECHARGEABLE_RE.sub(" ", query)
     hits = []
     for attr, patterns in _COMPILED_ATTRIBUTE_PATTERNS.items():
         if any(p.search(query) for p in patterns):
             hits.append(attr)
+    # "What is the battery life ...?" opens with "what is the", which is not a request for the
+    # product description: it only counts when nothing more specific was asked, or when the
+    # user said describe / tell me about.
+    if "description" in hits and len(hits) > 1 and not _DESCRIBE_RE.search(query):
+        hits.remove("description")
     return hits
 
 

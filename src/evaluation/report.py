@@ -43,8 +43,12 @@ def render_report(results: dict) -> str:
     # Dataset / corpus
     lines.append("## Dataset / corpus")
     lines.append("")
-    lines.append(f"- {results['corpus']['product_count']} products, {results['corpus']['evidence_count']} evidence records "
-                  "(Step 2 frozen output: comparison_table.parquet + evidence.json, read independently of RetrievalEngine).")
+    corpus = results["corpus"]
+    lines.append(f"- {corpus['product_count']} products, {corpus['evidence_count']} evidence records "
+                  "(Step 2 output: comparison_table.parquet + evidence.json, read independently of RetrievalEngine).")
+    if corpus.get("retrieval_documents") is not None:
+        lines.append(f"- Retrieval corpus measured in this run: {corpus['retrieval_documents']} documents, "
+                      f"sha256 `{corpus['retrieval_documents_sha256']}`, built {corpus['retrieval_documents_modified']}.")
     lines.append("")
 
     # Test set
@@ -60,16 +64,24 @@ def render_report(results: dict) -> str:
     lines.append("")
     lines.append("### Status coverage")
     lines.append("")
-    lines.append("| Status | Real examples in the 24-product corpus | Count |")
+    lines.append(f"| Status | Real examples in the {corpus['product_count']}-product corpus | Count |")
     lines.append("|---|---|---:|")
     for status in ("stated", "not_mentioned", "stated_absent", "ambiguous", "stated_with_null_value"):
         info = coverage[status]
         has = "yes" if info["has_real_example"] else "**NO (coverage gap)**"
         lines.append(f"| `{status}` | {has} | {info['count']} |")
     lines.append("")
-    lines.append("`stated_absent` and `ambiguous` have zero real occurrences in this 24-product corpus "
-                  "(confirmed directly against evidence.json: all 486 records carry status=`stated`). "
-                  "No test case was fabricated for either -- reported here as honest coverage gaps, per the 3C.1 integrity rules.")
+    gaps = [st for st in ("stated_absent", "ambiguous") if coverage[st]["count"] == 0]
+    if gaps:
+        names = " and ".join(f"`{g}`" for g in gaps)
+        all_stated = coverage["stated"]["count"] == corpus["evidence_count"]
+        basis = (f"all {corpus['evidence_count']} evidence records carry status=`stated`" if all_stated
+                 else f"{coverage['stated']['count']} of {corpus['evidence_count']} evidence records carry status=`stated`")
+        lines.append(f"{names} {'has' if len(gaps) == 1 else 'have'} zero real occurrences in this "
+                      f"{corpus['product_count']}-product corpus (counted from evidence.json: {basis}). "
+                      "No test case was fabricated for either -- reported here as honest coverage gaps, per the 3C.1 integrity rules.")
+    else:
+        lines.append("Every status has at least one real example in this corpus.")
     lines.append("")
 
     # Retrieval results
@@ -79,7 +91,9 @@ def render_report(results: dict) -> str:
     if ablation["status"] == "skipped":
         lines.append(f"Skipped: {ablation['reason']}")
     else:
-        lines.append(f"Ablation over {ablation['total_cases']} gold cases built from Step 2 output (3A's own evaluation, reused):")
+        lines.append(f"Ablation over {ablation['total_cases']} gold cases built from the current Step 2 output, computed in this run on the "
+                      "current corpus (fingerprint above); the gold cases come from the corpus itself, so this measures retrieval mechanics, "
+                      "not the 3C.1 test cases:")
         lines.append("")
         lines.append("| Retriever | Recall@5 | Recall@10 |")
         lines.append("|---|---:|---:|")
@@ -94,7 +108,7 @@ def render_report(results: dict) -> str:
                       "most of each method's strengths; the deterministic reranker (product/attribute-tier boosting) "
                       "closes nearly all of the remaining gap by guaranteeing exact product+attribute matches rank first.")
     lines.append("")
-    lines.append("### Behavioral checks (reused from 3A)")
+    lines.append("### Behavioral checks (3A's retrieval-layer checks, re-run in this run)")
     lines.append("")
     for name, info in retrieval["behavioral_checks"].items():
         status = "PASS" if info["passed"] else "FAIL"
@@ -108,7 +122,13 @@ def render_report(results: dict) -> str:
         lines.append(f"Aggregated over {cm['total_segments']} segments across all generation-requiring test cases "
                       f"({'live' if mode == 'live' else 'offline'} mode):")
         lines.append("")
-        lines.append(f"- Citation presence rate: {_pct(cm['presence_rate'])}")
+        lines.append(f"- Citation presence rate (all segments): {_pct(cm['presence_rate'])}")
+        uncited = cm["total_segments"] - round(cm["presence_rate"] * cm["total_segments"])
+        lines.append(f"- Segments without a citation: {uncited} -- {cm['uncited_absence_disclosures']} not-mentioned disclosure(s) "
+                      f"(an absence has no evidence record to cite), {cm['uncited_rejected_by_validator']} rejected by the citation validator "
+                      f"(not shown in the answer), **{cm['uncited_other']} factual segment(s) shown without a citation**.")
+        lines.append(f"- Citation presence over factual segments shown to the user: {_pct(cm['presence_rate_shown_factual'])} "
+                      f"({cm['shown_factual_segments']} segments)")
         lines.append(f"- Citation validity rate (ALL segments, including `trusted` code-generated ones): {_pct(cm['validity_rate_all'])}")
         lines.append(f"- Citation validity rate (LLM-authored/untrusted segments ONLY): {_pct(cm['validity_rate_untrusted_only'])}")
         lines.append(f"- Trusted segments: {cm['trusted_segments']} / {cm['total_segments']}; untrusted (LLM-authored): {cm['untrusted_segments']}")
@@ -128,6 +148,16 @@ def render_report(results: dict) -> str:
                   f"including `trusted` ones): {agg['unsupported_claim_count']} unsupported claim(s) found across "
                   f"{agg['total_cases']} test cases (rate: {_pct(agg['unsupported_claim_rate'])}).")
     lines.append("")
+    nc = results.get("groundedness_negative_control")
+    if nc:
+        lines.append(f"Checker self-test (negative control): {nc['false_flagged']}/{nc['false_sentences']} deliberately false sentences "
+                      f"flagged, {nc['true_clean']}/{nc['true_sentences']} true sentences left clean "
+                      f"-- **{'PASS' if nc['all_ok'] else 'FAIL'}**. The \"0 unsupported\" result above is only meaningful because the checker can fail:")
+        lines.append("")
+        for item in nc["items"]:
+            verdict = "flagged" if item["flagged"] else "clean"
+            lines.append(f"  - {item['label']}: {verdict} (expected {'flagged' if item['expect_flag'] else 'clean'}) -- \"{item['text']}\"")
+        lines.append("")
     unsupported_cases = [c for c in results["test_cases"] if c["groundedness_issues"]]
     if unsupported_cases:
         lines.append("Cases with flagged issues:")
@@ -139,6 +169,57 @@ def render_report(results: dict) -> str:
     else:
         lines.append("No unsupported claims found in this run.")
     lines.append("")
+
+    # Content checks
+    lines.append("## Content checks")
+    lines.append("")
+    checked = [c for c in results["test_cases"] if c.get("content_checks")]
+    lines.append(f"{len(checked)} test case(s) declare phrases the answer must (`must_include`) or must not (`must_not_include`) contain. "
+                  "Matching is case-insensitive and figures match as whole tokens (\"5x\" is not found in \"15x\"). "
+                  "A missing or forbidden phrase fails the case.")
+    lines.append("")
+    from .content_checks import summarize
+    for c in checked:
+        ok = all(chk["ok"] for chk in c["content_checks"])
+        lines.append(f"- `{c['id']}`: {'ok' if ok else '**FAIL**'} -- {summarize(c['content_checks'])}")
+    lines.append("")
+
+    # Answer quality
+    quality = results.get("answer_quality")
+    if quality:
+        agg_q, base = quality["aggregate"], quality.get("baseline")
+
+        def cell(key: str, pct: bool = True) -> str:
+            after = agg_q[key]
+            shown = _pct(after) if pct else str(after)
+            if base is None:
+                return f"| {shown} |"
+            before = base[key]
+            return f"| {_pct(before) if pct else before} | {shown} |"
+
+        lines.append("## Answer quality")
+        lines.append("")
+        lines.append("Is an answer concise, free of repeats and readable? Measured on what the user is shown "
+                      "(the answer text, the Sources section and the validated segments).")
+        lines.append("")
+        header = "| Metric | Before | After |" if base else "| Metric | This run |"
+        lines.append(header)
+        lines.append("|---|---:|---:|" if base else "|---|---:|")
+        lines.append(f"| Duplicate-source rate ({agg_q['duplicate_sources']} of {agg_q['sources_shown']} shown sources repeat another source's quote) " + cell("duplicate_source_rate"))
+        lines.append(f"| Redundant-segment rate ({agg_q['redundant_segments']} of {agg_q['segments_shown']} shown segments add nothing new) " + cell("redundant_segment_rate"))
+        lines.append(f"| Jargon rate ({agg_q['cases_with_jargon']} of {agg_q['cases']} answers contain internal wording) " + cell("jargon_rate"))
+        lines.append("")
+        tj = quality["template_jargon"]
+        lines.append(f"Templates written by our own code: {len(tj)} of {quality['template_samples']} contain internal wording"
+                      + (" (" + ", ".join(sorted(tj)) + ")." if tj else "."))
+        if base:
+            lines.append("")
+            lines.append("Before = the saved baseline (`data/evaluation/baseline_answer_quality.json`, taken before the readability fixes).")
+        lines.append("")
+        lines.append("Duplicate source: a Sources entry whose product and quote match an earlier entry. Redundant segment: every quote "
+                      "it cites was already cited and it adds no new number or distinctive word. Jargon: normalized, evidence, attribute, "
+                      "null, status, corpus, record, \"the available source\", \"manufacturer states\" in our own wording (page quotes are not scanned).")
+        lines.append("")
 
     # Safety results
     lines.append("## Safety results")

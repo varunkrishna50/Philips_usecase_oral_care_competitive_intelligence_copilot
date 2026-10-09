@@ -37,18 +37,15 @@ def detect_out_of_scope_source(query: str) -> Optional[str]:
     for marker in _THIRD_PARTY_RETAILERS:
         if marker in lowered:
             return (
-                "This assistant only has access to the official Philips US "
-                "(www.usa.philips.com) and Oral-B US (oralb.com) product pages. "
-                "Pricing or listing information from third-party retailers is not "
-                "available from the approved source corpus."
+                "I can only answer from the official Philips US (www.usa.philips.com) and Oral-B US "
+                "(oralb.com) product pages, so I can't help with prices or listings from other retailers."
             )
 
     for marker in _NON_US_MARKERS:
         if marker in lowered:
             return (
-                "This assistant only has access to the official US product pages "
-                "(www.usa.philips.com and oralb.com). Non-US regional sources are "
-                "out of scope and were not part of the approved source corpus."
+                "I can only answer from the official US product pages (www.usa.philips.com and oralb.com), "
+                "so I can't help with pages from other countries."
             )
 
     return None
@@ -78,11 +75,10 @@ _STANDALONE_MEDICAL_ADVICE_RE = re.compile(
 )
 
 MEDICAL_ADVICE_MESSAGE = (
-    "This assistant cannot provide medical or dental advice, diagnosis, or treatment "
-    "recommendations -- it cannot say whether a product treats, cures, or is medically "
-    "recommended for a health condition. It can only share the manufacturer's own "
-    "published product claims (e.g. stated plaque-removal or gum-health claims). Please "
-    "ask about the product's published claims or a specific documented attribute instead."
+    "I can't give medical or dental advice, or say whether a product treats, cures, or is "
+    "recommended for a health condition. I can share what the manufacturer's own product page "
+    "claims (for example its plaque-removal or gum-health claims). Please ask about a claim "
+    "or a specific feature instead."
 )
 
 
@@ -111,10 +107,8 @@ def has_no_scoping_signal(product_match_kind: str, attributes: list[str]) -> boo
 
 
 NO_SCOPE_MESSAGE = (
-    "I could not identify a specific product or a specific documented attribute "
-    "(e.g. price, battery life, modes, pressure sensing) in this question. This "
-    "assistant can only answer questions about attributes documented on the "
-    "approved Philips US and Oral-B US product pages -- it does not provide "
-    "general recommendations or advice. Please ask about a specific product or "
-    "attribute."
+    "I couldn't tell which product or which feature you mean (for example price, battery life, "
+    "modes or pressure sensing). I can only answer questions about what the official Philips US "
+    "and Oral-B US product pages say, not general recommendations or advice. Please ask about a "
+    "specific product or feature."
 )

@@ -17,8 +17,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Optional
 
-from .attribute_status import attribute_label, evidence_ids_for, resolve_attribute_status, status_aware_statement
+from .answer_assembly import cap_citations, drop_redundant_segments, limit_related, prepare_evidence, quote_key
+from .attribute_status import (
+    attribute_label,
+    evidence_ids_for,
+    expand_attributes,
+    related_evidence,
+    resolve_attribute_status,
+    status_aware_statement,
+)
 from .citations import (
+    display_section,
     Segment,
     ValidatedSegment,
     assign_markers,
@@ -34,6 +43,10 @@ from .safety import PROMPT_INJECTION_NOTICE, USER_MESSAGE_TRUST_NOTICE
 from .scope import NO_SCOPE_MESSAGE, detect_medical_advice_request, detect_out_of_scope_source, has_no_scoping_signal
 
 DEFAULT_COMPARISON_ATTRIBUTES = sorted(NUMERIC_ATTRIBUTES | BOOLEAN_ATTRIBUTES)
+
+
+# user-facing text when no segment survives validation
+EMPTY_ANSWER_MESSAGE = "The page does not say enough to answer this."
 
 
 @dataclass
@@ -56,7 +69,18 @@ def _build_system_prompt() -> str:
         f"{USER_MESSAGE_TRUST_NOTICE}\n\n"
         "Never perform arithmetic or comparisons yourself; any such computation has already been done "
         "elsewhere and will be added to the answer separately. Never state a fact, number, or product name "
-        'that is not directly supported by a cited evidence item. Respond with ONLY a single JSON object of '
+        "that is not directly supported by a cited evidence item.\n\n"
+        "Answer fully but concisely: lead with the direct answer, then give the specifics the evidence states "
+        "(how the feature works, numbers, mode or item names, the page's own wording), one segment per fact, "
+        "each citing the handle(s) that support it. If the only evidence is a bare label (for example just the "
+        "feature name), say that this is all the page states. Quote numbers, percentages and claim wording "
+        "exactly as the evidence has them -- never round, convert or rephrase a figure (write \"5x\" as 5x, "
+        "never \"5 times\"; \"700%\" as 700%, never \"seven times\"). When the evidence gives more than one figure "
+        "for the same thing, report each of them. Name the product the question is about in your first segment "
+        "(even when the evidence sentence itself does not). State each fact once; do not restate a fact an "
+        "earlier segment already gave. Use only facts that answer the question, and leave out unrelated details "
+        "even if the evidence contains them. Write in plain words.\n\n"
+        'Respond with ONLY a single JSON object of '
         'the exact form {"segments": [{"text": "...", "citation_ids": ["E1"]}]} and nothing else -- no '
         "markdown, no [S1]-style markers (the application assigns those itself)."
     )
@@ -68,7 +92,9 @@ def _build_evidence_context(citable_evidence: list[RetrievalDocument]) -> tuple[
     for i, doc in enumerate(citable_evidence, 1):
         handle = f"E{i}"
         handle_map[handle] = doc.evidence_id
-        lines.append(f"{handle}: [{doc.product_name} | {doc.attribute}] {doc.evidence_text}")
+        shown_section = display_section(doc)
+        section = f" | {shown_section}" if shown_section else ""
+        lines.append(f"{handle}: [{doc.product_name} | {doc.attribute}{section}] {doc.shown_text}")
     return "\n".join(lines), handle_map
 
 
@@ -100,10 +126,17 @@ def _fallback_segments_from_evidence(citable_evidence: list[RetrievalDocument]) 
     would visibly repeat the same sentence twice. Both evidence_ids are
     still cited.
     """
+    # A bare label ("Pressure Sensor", 3 words or fewer) adds nothing once the same product
+    # has a fuller sentence for the topic; keep it only when it is all there is.
+    richer_products = {d.product_id for d in citable_evidence if len(d.shown_text.split()) > 3}
+    citable_evidence = [
+        d for d in citable_evidence
+        if not (len(d.shown_text.split()) <= 3 and d.product_id in richer_products)
+    ]
     order: list[tuple[str, str]] = []
     grouped: dict[tuple[str, str], list[RetrievalDocument]] = {}
     for doc in citable_evidence:
-        key = (doc.product_id, doc.evidence_text)
+        key = (doc.product_id, doc.shown_text)
         if key not in grouped:
             grouped[key] = []
             order.append(key)
@@ -114,7 +147,7 @@ def _fallback_segments_from_evidence(citable_evidence: list[RetrievalDocument]) 
         docs = grouped[key]
         segments.append(
             Segment(
-                text=f"{docs[0].product_name}: {docs[0].evidence_text}",
+                text=f"{docs[0].product_name}: {docs[0].shown_text}",
                 citation_ids=[d.evidence_id for d in docs],
                 trusted=True,
             )
@@ -182,11 +215,12 @@ def _finish(
     query: str, validated: list[ValidatedSegment], evidence_by_id: dict[str, RetrievalDocument],
     used_llm: bool, reason: Optional[str], retrieval_result: RetrievalResult,
 ) -> AnswerResult:
-    marker_by_id = assign_markers(validated)
+    validated = drop_redundant_segments(validated, evidence_by_id)
+    marker_by_id = assign_markers(validated, evidence_by_id)
     answer_text = render_answer_text(validated, marker_by_id)
     sources_text = render_sources_section(marker_by_id, evidence_by_id)
     if not answer_text:
-        answer_text = "The available source does not contain information to answer this question."
+        answer_text = EMPTY_ANSWER_MESSAGE
     return AnswerResult(
         query=query, answer_text=answer_text, sources_text=sources_text, segments=validated,
         used_llm=used_llm, llm_unavailable_reason=reason, retrieval_result=retrieval_result,
@@ -200,15 +234,22 @@ def _answer_normal(
     trusted_segments: list[Segment] = []
     citable_evidence: list[RetrievalDocument] = []
     allowed_product_ids: Optional[set[str]] = None
-    allowed_attributes: Optional[list[str]] = retrieval_result.attributes or None
+    # citing a detail attribute of an asked attribute is valid; unrelated attributes still are not
+    allowed_attributes: Optional[list[str]] = expand_attributes(retrieval_result.attributes) or None
 
+    asked = list(dict.fromkeys(retrieval_result.attributes))
+    scores = {sd.document.evidence_id: sd.hybrid_score for sd in retrieval_result.results}
     if retrieval_result.product_match.kind == "matched" and retrieval_result.attributes:
         product = retrieval_result.product_match.candidates[0]
         allowed_product_ids = {product.product_id}
-        for attribute in dict.fromkeys(retrieval_result.attributes):
+        for attribute in asked:
             attr_status = resolve_attribute_status(product, attribute, engine.retrieval_documents)
             if attr_status.status == "stated" and attr_status.value is not None:
-                citable_evidence.extend(attr_status.evidence)
+                # the detail records that answer the question (how it works, numbers, names) first, then the bare label
+                related = limit_related(related_evidence(product, attribute, engine.retrieval_documents), query, scores)
+                for doc in related + attr_status.evidence:
+                    if doc not in citable_evidence:
+                        citable_evidence.append(doc)
             else:
                 # not_mentioned / stated_absent / ambiguous / stated-null:
                 # a deterministic, trusted disclosure -- never asked of the LLM.
@@ -225,6 +266,10 @@ def _answer_normal(
         return AnswerResult(query, NO_SCOPE_MESSAGE, "", retrieval_result=retrieval_result)
     else:
         citable_evidence = [sd.document for sd in retrieval_result.results]
+
+    # one record per distinct quote; a quote a code-written sentence already shows is not offered again
+    already_quoted = {quote_key(evidence_by_id[c]) for seg in trusted_segments for c in seg.citation_ids if c in evidence_by_id}
+    citable_evidence, _aliases = prepare_evidence(citable_evidence, asked, already_quoted)
 
     llm_segments: list[Segment] = []
     used_llm = False
@@ -245,6 +290,9 @@ def _answer_normal(
             else:
                 used_llm = True
 
+    # at most two citations per segment (direct records first, never fewer than the figures need);
+    # the citation validator then runs on the trimmed segments
+    llm_segments = [cap_citations(seg, evidence_by_id, asked) for seg in llm_segments]
     validated = validate_segments(trusted_segments + llm_segments, evidence_by_id, engine.product_corpus, allowed_product_ids, allowed_attributes)
     return _finish(query, validated, evidence_by_id, used_llm, reason, retrieval_result)
 

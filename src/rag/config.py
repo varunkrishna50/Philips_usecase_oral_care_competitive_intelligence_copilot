@@ -12,6 +12,7 @@ PROCESSED_DIR = ROOT / "data" / "processed"
 COMPARISON_TABLE_CSV = PROCESSED_DIR / "comparison_table.csv"
 COMPARISON_TABLE_PARQUET = PROCESSED_DIR / "comparison_table.parquet"
 EVIDENCE_JSON = PROCESSED_DIR / "evidence.json"
+PRODUCT_ALIASES_CSV = PROCESSED_DIR / "product_aliases.csv"
 
 INDEX_DIR = ROOT / "data" / "index"
 RETRIEVAL_DOCUMENTS_PATH = INDEX_DIR / "retrieval_documents.json"

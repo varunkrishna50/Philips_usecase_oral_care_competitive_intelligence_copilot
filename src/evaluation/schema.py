@@ -48,6 +48,10 @@ class TestCase(BaseModel):
     # poisoned-evidence injection only: which real evidence_id to clone
     # and append instruction-like text to, in memory, for --live only.
     poison_base_evidence_id: Optional[str] = None
+    # Content checks on the answer text (src/evaluation/content_checks.py): every phrase in
+    # must_include must appear, none in must_not_include may. Figures match as whole tokens.
+    must_include: list[str] = Field(default_factory=list)
+    must_not_include: list[str] = Field(default_factory=list)
 
     @field_validator("id")
     @classmethod

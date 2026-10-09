@@ -6,7 +6,7 @@
   },
   "totals": {
     "discovered": 22,
-    "scraped": 22,
+    "scraped": 21,
     "failed": 0
   },
   "brands": {
@@ -44,9 +44,9 @@
     },
     "Oral-B": {
       "discovered_count": 12,
-      "scraped_count": 12,
+      "scraped_count": 11,
       "failed_count": 0,
-      "excluded_count": 14,
+      "excluded_count": 15,
       "discovered_urls": [
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-6-electric-toothbrush-black-lava/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-rechargeable-electric-toothbrush-aqua-marine/",
@@ -145,6 +145,12 @@
           "url": "https://oralb.com/en-us/products/toothbrushes/clic",
           "reason": "accessory_manual_or_kids_path_excluded",
           "discovered_from": "https://oralb.com/en-us/products/compare/electric-toothbrushes"
+        },
+        {
+          "brand": "Oral-B",
+          "url": "https://oralb.com/en-us/products/electric-toothbrushes/io-ultimate-clean-rechargeable-electric-toothbrush/",
+          "reason": "bundle_excluded_by_policy: name says bundle/multi-pack (2 handle(s) in the box)",
+          "discovered_from": "https://oralb.com/en-us/products/electric-toothbrushes/electric-toothbrushes/?page=2"
         }
       ],
       "scraped_urls": [
@@ -152,7 +158,6 @@
         "https://oralb.com/en-us/products/shop-all/oral-b-io-series-9-rechargeable-electric-toothbrush-aqua-marine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-10-rechargeable-electric-toothbrush-cosmic-black/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-genius-rechargeable-electric-toothbrush-sapphire-blue/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/io-ultimate-clean-rechargeable-electric-toothbrush/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-8-electric-toothbrush-violet-ametrine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-7-electric-toothbrush-black/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-5-customizable-clean-rechargeable-electric-toothbrush-matte-black/",

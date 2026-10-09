@@ -58,7 +58,8 @@ def test_philips_prestige_pricing_and_specs(built):
     assert p.intensity_levels.value == ["High", "Medium", "Low"]
     # Evidence is clean JSON (one escape level removed), not backslash-escaped.
     ev = store.get(p.original_price.evidence_ids[0])
-    assert '"discountPrice"' in ev.evidence_text and "\\" not in ev.evidence_text
+    # price evidence is the browser-rendered, shopper-visible text ("$ 399.96")
+    assert "399.96" in ev.evidence_text
 
 
 def test_oralb_io9_pricing_and_flags(built):
@@ -79,7 +80,11 @@ def test_oralb_io9_pricing_and_flags(built):
 def test_missing_facts_stay_not_mentioned(built):
     products, _, _ = built
     p = _by_id(products, "philips_hy1200-25")
-    assert p.warranty_years.status == "not_mentioned" and p.warranty_years.value is None
+    # the One has no spec-table rows, but its rendered page states these in plain text
+    assert p.warranty_years.status == "stated" and p.warranty_years.value == 2
+    assert p.brush_movements_per_min.value == 13000
+    assert p.timer.status == "stated"
+    # ... and still says nothing about coverage tracking
     assert p.coverage_tracking.status == "not_mentioned"
 
 

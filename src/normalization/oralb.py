@@ -39,14 +39,10 @@ def extract_specifications(sections, product_id, record, store, warnings) -> uti
     description bullets ("automatic gum pressure sensor", "2-minute brush
     timer", ...) plus the dimensions and weight lines of the box list."""
     details = record.get("details") or {}
-    # Bold lead-ins that are really headline claims ("removes 100% more
-    # plaque") belong to `claims`, not to the spec list.
-    terms = [
-        t.rstrip(":").strip()
-        for t in (details.get("key_terms") or [])
-        if not utils.CLAIM_MARKER.search(t)
-    ]
-    terms += [t for t in (details.get("dimensions"), details.get("weight")) if t]
+    # Real specifications only. The bold lead-ins are marketing headlines and
+    # live in feature_headlines.csv; other numeric facts (battery, warranty,
+    # charge time, ...) are rows of specs_long.csv.
+    terms = [t for t in (details.get("dimensions"), details.get("weight")) if t]
     entries = []
     for term in terms:
         for idx, section in sections:

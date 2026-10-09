@@ -26,9 +26,9 @@ class TestIndependenceFromRagObjects:
 
 
 class TestLoadGoldCorpus:
-    def test_loads_real_22_product_corpus(self):
+    def test_loads_real_21_product_corpus(self):
         corpus = gold_labels.load_gold_corpus()
-        assert len(corpus.products) == 22
+        assert len(corpus.products) == 21
         assert len(corpus.evidence) == len(json.loads((Path(__file__).resolve().parents[1] / "data" / "processed" / "evidence.json").read_text(encoding="utf-8")))
 
     def test_products_by_id_lookup(self):
@@ -80,7 +80,7 @@ class TestProductsWhere:
     def test_boolean_true_filter(self):
         corpus = gold_labels.load_gold_corpus()
         matches = corpus.products_where("pressure_sensing", True)
-        assert len(matches) == 20
+        assert len(matches) == 19
 
     def test_numeric_equality_filter(self):
         corpus = gold_labels.load_gold_corpus()
@@ -100,4 +100,4 @@ class TestStatusCoverage:
         assert coverage["stated_with_null_value"]["has_real_example"] is True
         # charging_method is "stated" with a null value where the page only says
         # "charger" (no magnetic wording): 16 product rows.
-        assert coverage["stated_with_null_value"]["count"] == 14
+        assert coverage["stated_with_null_value"]["count"] == 13

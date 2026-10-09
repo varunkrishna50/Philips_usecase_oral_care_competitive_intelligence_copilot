@@ -22,6 +22,7 @@ import pyarrow.parquet as pq
 
 from .config import COMPARISON_TABLE_PARQUET, EVIDENCE_JSON
 from .models import ProductRecord, RetrievalDocument
+from .readable import is_spec_json, readable_evidence
 
 IDENTITY_COLUMNS = {
     "product_id", "brand", "product_name", "product_url",
@@ -84,6 +85,25 @@ def _retrieval_text(brand: str, product_name: str, attribute: str, evidence_text
     )
 
 
+def _display_text(ev: dict) -> str:
+    """Readable text for a Philips spec-row record ("" when evidence_text already reads fine).
+
+    The quote stored for a spec row is a truncated JSON excerpt, so for list-valued attributes
+    the full parsed value (taken from the same page row) is used: all modes, not just the first two."""
+    text = ev["evidence_text"]
+    if not is_spec_json(text):
+        return ""
+    value = ev.get("value")
+    if ev["attribute"] in ("mode_details", "intensity_details") and isinstance(value, list) and value \
+            and all(isinstance(v, dict) and v.get("name") for v in value):
+        return "; ".join(f"{v['name']}: {v['description']}" if v.get("description") else v["name"] for v in value)
+    if ev["attribute"] in ("modes", "intensity_levels") and isinstance(value, list) and value \
+            and all(isinstance(v, str) for v in value):
+        label = "Modes" if ev["attribute"] == "modes" else "Intensity levels"
+        return f"{label}: {', '.join(value)}"
+    return readable_evidence(text)
+
+
 def build_retrieval_documents(
     evidence_records: list[dict] | None = None,
     product_corpus: list[ProductRecord] | None = None,
@@ -113,10 +133,30 @@ def build_retrieval_documents(
                 source_url=ev["source_url"],
                 source_section=ev.get("source_section"),
                 source_file=ev["source_file"],
+                source_region=ev.get("region"),
+                display_text=_display_text(ev),
                 retrieval_text=_retrieval_text(
                     brand, product_name, ev["attribute"], ev["evidence_text"], ev.get("source_section")
                 ),
             )
         )
+    _complete_mode_displays(documents)
     documents.sort(key=lambda d: d.document_id)
     return documents
+
+
+def _complete_mode_displays(documents: list[RetrievalDocument]) -> None:
+    """The mode_count / modes records quote a truncated spec excerpt (only the first modes). Show the
+    full list parsed from the same page row instead, so "how many modes, and which?" gets all of them."""
+    names: dict[str, list[str]] = {}
+    for d in documents:
+        if d.attribute == "modes" and isinstance(d.value, list) and all(isinstance(v, str) for v in d.value):
+            names[d.product_id] = d.value
+    for d in documents:
+        listed = names.get(d.product_id)
+        if not listed or not is_spec_json(d.evidence_text):
+            continue
+        if d.attribute == "mode_count" and isinstance(d.value, int):
+            d.display_text = f"{d.value} brushing modes: {', '.join(listed)}"
+        elif d.attribute == "modes":
+            d.display_text = f"Modes: {', '.join(listed)}"

@@ -58,7 +58,7 @@ class TestNumericComparison:
         docs = [_doc(a.product_id, a.product_name, "price", "stated", 79.96, "$79.96", "e1")]
         result = compare_attribute(a, b, "price", docs)
         assert not result.comparable
-        assert "cannot be established" in result.summary
+        assert "isn't possible" in result.summary
 
     def test_stated_with_null_value_is_not_comparable(self):
         """stated+value=None (discussed but unnormalizable) must never be

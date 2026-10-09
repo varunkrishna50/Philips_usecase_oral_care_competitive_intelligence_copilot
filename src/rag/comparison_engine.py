@@ -93,7 +93,7 @@ def compare_attribute(
     # Not safely comparable: at least one side is not_mentioned/ambiguous/
     # stated-with-null, or a genuine conflict -- never guess or average.
     parts = [status_aware_statement(status_a), status_aware_statement(status_b)]
-    summary = " ".join(parts) + " A side-by-side comparison cannot be established for this attribute."
+    summary = " ".join(parts) + " A side-by-side comparison isn't possible for this one."
     return ComparisonResult(
         attribute=attribute, status_a=status_a, status_b=status_b, comparable=False, summary=summary,
         citation_evidence_ids=evidence_ids_for(status_a) + evidence_ids_for(status_b),

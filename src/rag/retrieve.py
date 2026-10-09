@@ -19,6 +19,7 @@ from .bm25_index import BM25Index
 from .config import DEFAULT_ALPHA, DEFAULT_TOP_K, FAISS_INDEX_PATH, FAISS_METADATA_PATH
 from .corpus import build_retrieval_documents, load_product_corpus
 from .embedding_index import EmbeddingIndex
+from .attribute_status import expand_attributes
 from .evidence_filter import FilterResult, filter_evidence
 from .exhaustive import ExhaustiveMatch, exhaustive_query
 from .models import ProductRecord, RetrievalDocument, ScoredDocument
@@ -32,6 +33,10 @@ from .query_understanding import (
 )
 from .rerank import rerank
 from .scoring import combine_hybrid
+
+
+# user-facing text when the named product is not in the data
+NOT_IN_CORPUS_MESSAGE = "I couldn't find that product on the Philips US or Oral-B US pages I have."
 
 
 @dataclass
@@ -106,8 +111,11 @@ class RetrievalEngine:
         bm25_candidates = self.bm25_index.search(query, top_k=n)
         semantic_candidates = self.embedding_index.search(query, top_k=n)
         hybrid_ranking = combine_hybrid(bm25_candidates, semantic_candidates, alpha=alpha)
-        reranked = rerank(list(hybrid_ranking), product_match, attributes)
-        filter_result: FilterResult = filter_evidence(reranked, product_match, attributes)
+        # the asked attributes plus the detail attributes that explain them
+        # ("pressure_sensing" -> "pressure_sensing_details"); result.attributes stays the asked list
+        target_attrs = expand_attributes(attributes)
+        reranked = rerank(list(hybrid_ranking), product_match, target_attrs)
+        filter_result: FilterResult = filter_evidence(reranked, product_match, target_attrs)
         return filter_result.accepted[:top_k], filter_result.rejected, bm25_candidates, semantic_candidates, hybrid_ranking
 
     def retrieve(
@@ -136,7 +144,7 @@ class RetrievalEngine:
         # 3A.15 -- product named but not in the corpus: say so, don't substitute.
         if product_match.kind == "not_in_corpus":
             result.not_in_corpus = True
-            result.not_in_corpus_message = "The requested product is not present in the available source corpus."
+            result.not_in_corpus_message = NOT_IN_CORPUS_MESSAGE
             return result
 
         # 3A.13 -- exhaustive "which products have X" bypasses top-k entirely.

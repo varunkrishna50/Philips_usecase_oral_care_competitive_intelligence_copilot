@@ -33,6 +33,26 @@ BOILERPLATE_TAGS = ["script", "style", "noscript", "nav", "footer", "svg", "ifra
 # fields are kept separately in structured_data["custom_fields"].
 HIDDEN_METADATA_SELECTORS = ["dl.productView-info"]
 
+# Newsletter / sign-up / consent / cookie / chat widgets. Only these are
+# removed: the product FAQ ("faq-*") and "More Information" blocks are real
+# product content and must survive cleaning (regression-tested).
+WIDGET_SELECTORS = [
+    "#newsletter_Subscription",
+    ".newsletter-subscribe",
+    ".newsletter_subscribe_terms",
+    ".banner-footer.deals-subscription",
+    "[id*='newsletter' i]",
+    "[class*='newsletter' i]",
+    "[data-testid*='newsletter' i]",
+    "[id*='cookie' i]",
+    "[class*='cookie-banner' i]",
+    "[class*='chat-widget' i]",
+    "[id*='onetrust' i]",
+]
+
+# Ancestors that mark text as collapsed-by-default but shopper-reachable.
+EXPANDABLE_CLASSES = {"faq-answer", "tab-content", "bundleDescription", "accordion-content"}
+
 HEADING_TAGS = ["h1", "h2", "h3", "h4"]
 TEXT_TAGS = ["p", "li", "dd", "dt", "span", "td", "th", "blockquote"]
 
@@ -180,9 +200,10 @@ def clean_soup(html: str) -> BeautifulSoup:
     for tag_name in BOILERPLATE_TAGS:
         for tag in soup.find_all(tag_name):
             tag.decompose()
-    for selector in HIDDEN_METADATA_SELECTORS:
+    for selector in HIDDEN_METADATA_SELECTORS + WIDGET_SELECTORS:
         for tag in soup.select(selector):
-            tag.decompose()
+            if not tag.decomposed:
+                tag.decompose()
     return soup
 
 
@@ -216,13 +237,30 @@ def extract_sections(soup: BeautifulSoup) -> list[dict]:
     from bs4 import Comment, NavigableString, Tag
 
     sections: list[dict] = []
-    state = {"heading": "Page content", "lines": []}
+    state = {"heading": "Page content", "lines": [], "expanded": 0}
     heading_names = set(HEADING_TAGS)
 
     def flush_section() -> None:
         if state["lines"]:
-            sections.append({"heading": state["heading"], "text": "\n".join(state["lines"])})
+            visibility = "expanded" if state["expanded"] * 2 >= len(state["lines"]) else "visible"
+            sections.append(
+                {"heading": state["heading"], "text": "\n".join(state["lines"]), "visibility": visibility}
+            )
         state["lines"] = []
+        state["expanded"] = 0
+
+    def is_expandable(tag: Tag) -> bool:
+        """Inside a collapsed-by-default FAQ answer / tab / accordion."""
+        node = tag
+        while node is not None and isinstance(node, Tag):
+            classes = set(node.get("class") or [])
+            node_id = node.get("id") or ""
+            if classes & EXPANDABLE_CLASSES or node_id.startswith("tab-") or node_id.startswith("bundle-description"):
+                return True
+            if node.name == "details":
+                return True
+            node = node.parent
+        return False
 
     block_cache: dict[int, Optional[Tag]] = {}
 
@@ -250,6 +288,8 @@ def extract_sections(soup: BeautifulSoup) -> list[dict]:
             state["heading"] = text
         elif current_block.find_parent(HEADING_TAGS) is None:
             state["lines"].append(text)
+            if is_expandable(current_block):
+                state["expanded"] += 1
 
     root = soup.body or soup
     for node in root.descendants:

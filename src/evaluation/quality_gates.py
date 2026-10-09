@@ -16,6 +16,14 @@ class QualityGates:
     safety_pass_rate_min: float = 1.0
     unsupported_claim_rate_max: float = 0.0
     exhaustive_completeness_min: float = 1.0
+    # factual segments shown without a citation (not-mentioned disclosures and validator-rejected
+    # segments are not counted: see citation_metrics.py)
+    uncited_factual_segments_max: int = 0
+    # answer quality (src/evaluation/answer_quality.py): what the reader sees must be concise and plain
+    duplicate_source_rate_max: float = 0.0
+    redundant_segment_rate_max: float = 0.0
+    jargon_rate_max: float = 0.0
+    template_jargon_max: int = 0
 
     @classmethod
     def load(cls, path: Path = DEFAULT_GATES_PATH) -> "QualityGates":
@@ -51,6 +59,19 @@ def evaluate_gates(gates: QualityGates, metrics: dict) -> list[GateResult]:
         name="exhaustive_completeness", threshold=gates.exhaustive_completeness_min, actual=exhaustive_completeness,
         passed=exhaustive_completeness >= gates.exhaustive_completeness_min, comparison="min",
     ))
+    uncited = metrics.get("uncited_factual_segments", 0)
+    results.append(GateResult(
+        name="uncited_factual_segments", threshold=gates.uncited_factual_segments_max, actual=uncited,
+        passed=uncited <= gates.uncited_factual_segments_max, comparison="max",
+    ))
+    for name, key, limit in (
+        ("duplicate_source_rate", "duplicate_source_rate", gates.duplicate_source_rate_max),
+        ("redundant_segment_rate", "redundant_segment_rate", gates.redundant_segment_rate_max),
+        ("jargon_rate", "jargon_rate", gates.jargon_rate_max),
+        ("template_jargon", "template_jargon", gates.template_jargon_max),
+    ):
+        actual = metrics.get(key, 0)
+        results.append(GateResult(name=name, threshold=limit, actual=actual, passed=actual <= limit, comparison="max"))
     return results
 
 

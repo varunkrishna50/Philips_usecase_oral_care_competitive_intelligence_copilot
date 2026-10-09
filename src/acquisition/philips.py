@@ -18,7 +18,14 @@ from .base import (
     record_html_path,
     save_record,
 )
-from .details import PRICE_TOLERANCE, compute_discount, decode_json_at, find_stated_mode_count, unescape_embedded_json
+from .details import (
+    PRICE_TOLERANCE,
+    classify_bundle,
+    compute_discount,
+    decode_json_at,
+    find_stated_mode_count,
+    unescape_embedded_json,
+)
 from .models import (
     DiscoveredProduct,
     Disclaimer,
@@ -235,6 +242,10 @@ def _extract_details(html: str, raw_soup, sku_full: str, json_ld_products: list[
         if name not in details.intensities:
             details.intensities.append(name)
 
+    for item_name, values in _chapter_items(chapters.get("Items included")):
+        if values:
+            details.box_items.append(f"{item_name}: {'; '.join(values)}")
+
     # --- highlights and features -----------------------------------------
     hl = re.search(r'"versions":\[((?:"[^"]*"(?:,)?)+)\]', text)
     if hl:
@@ -325,6 +336,10 @@ def _extract_details(html: str, raw_soup, sku_full: str, json_ld_products: list[
             notes.append("aggregate_rating_unparseable")
     else:
         notes.append("no_aggregate_rating_on_page")
+    details.source_variant_sku = sku_full
+    color_rows = _chapter_items(chapters.get("Design and finishing"))
+    details.source_variant_label = next((v[0] for n, v in color_rows if re.fullmatch(r"colou?r", n, re.I) and v), None)
+    details.product_type, details.handle_count, _ = classify_bundle(ld.get("name") or "", details.box_items)
     return details
 
 

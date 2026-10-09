@@ -31,4 +31,4 @@ class TestPipelineCLI:
         exit_code = pipeline.main(["--query", "What is the Amazon price of this toothbrush?", "--no-llm"])
         captured = capsys.readouterr()
         assert exit_code == 0
-        assert "third-party retailers" in captured.out
+        assert "other retailers" in captured.out

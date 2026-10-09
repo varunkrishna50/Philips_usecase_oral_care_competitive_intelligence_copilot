@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-10-09T15:46:18.732906+00:00",
+  "url": "https://www.usa.philips.com/c-p/HX4031_71/3100-rechargeable-toothbrush",
+  "needles": [
+    "Operating time",
+    "Battery type",
+    "Battery indicator",
+    "SmarTimer",
+    "Optimal Plaque C2"
+  ],
+  "visible_before_toggle": {
+    "Operating time": false,
+    "Battery type": false,
+    "Battery indicator": false,
+    "SmarTimer": false,
+    "Optimal Plaque C2": false
+  },
+  "visible_after_toggle": {
+    "Operating time": true,
+    "Battery type": true,
+    "Battery indicator": true,
+    "SmarTimer": true,
+    "Optimal Plaque C2": true
+  },
+  "philips_spec_expanded": true
+}

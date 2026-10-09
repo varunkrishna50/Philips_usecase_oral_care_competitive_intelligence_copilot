@@ -70,21 +70,21 @@ class TestStatusAwareStatement:
         product = _product()
         status = resolve_attribute_status(product, "included_items", [])
         text = status_aware_statement(status)
-        assert text == "The available source does not mention included items for Test Product."
+        assert text == "The page does not mention included items for Test Product."
 
     def test_stated_absent_phrasing(self):
         product = _product()
         docs = [_doc(product.product_id, "pressure_sensing", "stated_absent", False, "No pressure sensor.")]
         status = resolve_attribute_status(product, "pressure_sensing", docs)
         text = status_aware_statement(status)
-        assert text == "The source explicitly indicates that pressure sensing is not present for Test Product."
+        assert text == "The page says Test Product does not have pressure sensing."
 
     def test_ambiguous_phrasing(self):
         product = _product()
         docs = [_doc(product.product_id, "battery_life_days", "ambiguous", None, "Conflicting battery claims.")]
         status = resolve_attribute_status(product, "battery_life_days", docs)
         text = status_aware_statement(status)
-        assert "conflicting or ambiguous" in text
+        assert "conflicting information" in text
         assert "battery life" in text
         assert "Test Product" in text
 
@@ -93,14 +93,14 @@ class TestStatusAwareStatement:
         docs = [_doc(product.product_id, "claims", "stated", None, "Clinically proven results.")]
         status = resolve_attribute_status(product, "claims", docs)
         text = status_aware_statement(status)
-        assert '"Clinically proven results."' in text
-        assert "does not provide a normalized value" in text
+        assert "\u201cClinically proven results.\u201d" in text
+        assert "does not state" in text and "It says" in text
 
     def test_stated_numeric_value_phrasing(self):
         product = _product(attributes={"mode_count": 3})
         docs = [_doc(product.product_id, "mode_count", "stated", 3, "3 modes")]
         status = resolve_attribute_status(product, "mode_count", docs)
-        assert status_aware_statement(status) == "Test Product has 3 for number of brushing modes."
+        assert status_aware_statement(status) == "Test Product: number of brushing modes is 3."
 
     def test_stated_price_is_formatted_as_currency(self):
         product = _product(attributes={"price": 49.96})
@@ -112,7 +112,7 @@ class TestStatusAwareStatement:
         product = _product(attributes={"timer": True})
         docs = [_doc(product.product_id, "timer", "stated", True, "Built-in timer.")]
         status = resolve_attribute_status(product, "timer", docs)
-        assert status_aware_statement(status) == "Test Product has this feature for timer."
+        assert status_aware_statement(status) == "Test Product has timer."
 
 
 class TestEvidenceIdsFor:

@@ -76,6 +76,10 @@ class _Page:
         self.unescaped = self.html.replace('\\"', '"')
         self.raw_text = record["raw_text"]
         self.widget_text = record.get("structured_data", {}).get("rating_widget_text", "")
+        rendered = record.get("rendered_text_path")
+        self.rendered = Path(rendered).read_text(encoding="utf-8", newline="") if rendered and Path(rendered).exists() else ""
+        # text the structured-evidence verbatim check may quote from
+        self.extra_text = (self.widget_text + "\n" + self.rendered).strip("\n")
         self.chapters: dict[str, tuple[dict, str]] = {}
         self.scopes: list[str] = []
         if self.brand == "Philips":
@@ -150,7 +154,7 @@ def _add(
                     product_id=product_id, attribute=attribute, value=value, status="stated",
                     raw_value=raw_value, evidence_text=text[:_MAX_SNIPPET],
                     source_url=page.record["product_url"], source_file=page.record["raw_html_path"],
-                    raw_text=page.raw_text, html_text=page.html, extra_text=page.widget_text,
+                    raw_text=page.raw_text, html_text=page.html, extra_text=page.extra_text,
                 )
             )
         except EvidenceIntegrityError:
@@ -193,6 +197,27 @@ def _trim_to_words(scope: str, m: re.Match) -> str:
     return text.strip()
 
 
+def _rendered_price(page: _Page, value: Optional[float]) -> Optional[str]:
+    """The price as shown in the browser-rendered page text ("$ 49.96")."""
+    if value is None or not page.rendered:
+        return None
+    m = re.search(rf"\$\s?{value:,.2f}", page.rendered)
+    return m.group(0) if m else None
+
+
+def _price_snippets(page: _Page) -> tuple[Optional[str], Optional[str]]:
+    """(snippet for the regular price, snippet for the price after discount).
+    Philips: the rendered text when present, else the embedded price JSON
+    (cross_check_only)."""
+    d = page.details
+    if page.brand == "Philips":
+        fallback = _price_snippet(page)
+        return (_rendered_price(page, d.get("original_price")) or fallback,
+                _rendered_price(page, d.get("sale_price")) or fallback)
+    snip = _price_snippet(page)
+    return snip, snip
+
+
 def _price_snippet(page: _Page) -> Optional[str]:
     d = page.details
     if page.brand == "Philips":
@@ -231,13 +256,14 @@ def extract_detail_attributes(
         out[attribute] = _add(page, store, warnings, product_id, attribute, value, snippet, raw_value, extra)
 
     # -- pricing -----------------------------------------------------------
-    price_snip = _price_snippet(page)
-    if price_snip and d.get("sale_price") is not None:
+    orig_snip, sale_snip = _price_snippets(page)
+    if orig_snip and sale_snip and d.get("sale_price") is not None:
         pair = f"{d.get('original_price')} -> {d.get('sale_price')} {d.get('currency') or ''}".strip()
-        add("original_price", d.get("original_price"), price_snip, pair)
-        add("price_after_discount", d.get("sale_price"), price_snip, pair)
-        add("discount_amount", d.get("discount_amount"), price_snip, pair)
-        add("discount_pct", d.get("discount_pct"), price_snip, pair)
+        both = [sale_snip] if sale_snip != orig_snip else []
+        add("original_price", d.get("original_price"), orig_snip, pair)
+        add("price_after_discount", d.get("sale_price"), sale_snip, pair)
+        add("discount_amount", d.get("discount_amount"), orig_snip, pair, both)
+        add("discount_pct", d.get("discount_pct"), orig_snip, pair, both)
     promo = d.get("promotion_text")
     if promo:
         m = re.search(re.escape(promo[:60]) + r"[^\n]*", page.raw_text)
@@ -261,8 +287,13 @@ def extract_detail_attributes(
     # -- ratings (average and count only) --------------------------------------
     if d.get("rating_avg") is not None and d.get("rating_count") is not None:
         if page.brand == "Philips":
-            m = re.search(r'"aggregateRating":\{[^{}]*\}', page.html)
-            snippet = m.group(0) if m else None
+            # rating as rendered: "4.7 ... | (164) Reviews"; JSON-LD only as fallback
+            m = re.search(r"(\d\.\d)\s*\n+\s*\|?\s*\(([\d,]+)\)\s*Reviews?", page.rendered)
+            if m and abs(float(m.group(1)) - float(d["rating_avg"])) < 0.051 and int(m.group(2).replace(",", "")) == int(d["rating_count"]):
+                snippet = m.group(0)
+            else:
+                m = re.search(r'"aggregateRating":\{[^{}]*\}', page.html)
+                snippet = m.group(0) if m else None
         else:
             snippet = page.widget_text or None
         pair = f"{d['rating_avg']} / {d.get('rating_scale', 5)} from {d['rating_count']} ratings"
@@ -345,13 +376,14 @@ def extract_detail_attributes(
             add("display_type", m.group(0)[0].upper() + m.group(0)[1:].lower(), _line_around(page.raw_text, m))
     flag(
         "replacement_reminder",
-        r"brush head tracker|replacement reminder|refill (?:change|replacement) (?:alert|reminder)|"
+        r"replacement reminder|refill (?:change|replacement) (?:alert|reminder)|"
         r"(?:head|refill) replacement (?:reminder|alert|indicator)|BrushSync",
     )
     flag(
         "coverage_tracking",
         r"3D teeth tracking|teeth tracking|position detection|real-time coverage|brushing coverage|"
-        r"pressure, motion,? and coverage|\bcoverage\b[^.\"]{0,30}(?:tracking|feedback|guidance)",
+        r"pressure, motion,? and coverage|\bcoverage\b[^.\"]{0,30}(?:tracking|feedback|guidance)|"
+        r"tracks? (?:how and )?where you brush|how and where you brush",
     )
 
     # -- included hardware -------------------------------------------------------------
@@ -360,8 +392,13 @@ def extract_detail_attributes(
         if hit:
             add("travel_case_included", True, hit[2], hit[1][0] if hit[1] else None)
         hit = page.spec_item(r"Brush heads?", "Items included")
-        if hit and hit[1] and (n := _first_int(hit[1][0])) is not None:
-            add("brush_heads_included", n, hit[2], hit[1][0])
+        if hit and hit[1]:
+            # "1 C3 Premium Plaque Control; 1 S2 Sensitive" = two heads: sum every listed quantity
+            from .included import brush_head_total
+
+            n = brush_head_total([f"{hit[0]}: {'; '.join(hit[1])}"])
+            if n is not None:
+                add("brush_heads_included", n, hit[2], "; ".join(hit[1]))
     else:
         # Only the page's own "What's in the box" list counts (never marketing
         # copy or internal tags): travel case present, brush heads summed.
@@ -370,14 +407,18 @@ def extract_detail_attributes(
         if case_items:
             add("travel_case_included", True, case_items[0], extra=case_items[1:])
         head_items = [i for i in box if re.search(r"\bbrush heads?\b", i, re.I)]
-        leads = [re.match(r"\((\d+)\)", i.strip()) for i in head_items]
-        if head_items and all(leads):
-            add("brush_heads_included", sum(int(m.group(1)) for m in leads), head_items[0], extra=head_items[1:])
+        from .included import brush_head_total
+
+        total = brush_head_total(head_items) if head_items else None
+        if total is not None:
+            # sum of "(N)" quantities; each head line without a quantity is one head
+            # ("Gum & Sensitive Replacement Brush Head", "Ultimate Clean Replacement Brush Head" = 2)
+            add("brush_heads_included", total, head_items[0], extra=head_items[1:])
         elif head_items:
-            # A head line without a "(N)" quantity: report no number rather than guess.
+            # Mixed lines (some with a "(N)" quantity, some without): report no number rather than guess.
             warnings.append(NormalizationWarning(
                 product_id=product_id, code="brush_head_quantity_not_stated", attribute="brush_heads_included",
-                message=f"'What's in the box' lists brush heads without a quantity ({head_items}); no count reported.",
+                message=f"'What's in the box' lists brush heads with mixed quantities ({head_items}); no count reported.",
             ))
         if d.get("dimensions"):
             add("dimensions", d["dimensions"], d["dimensions"])
@@ -477,8 +518,8 @@ def apply_detail_attributes(
     # -- regular price is the primary price -------------------------------------
     reg = detail["original_price"]
     if reg.status == "stated":
-        snippet = _price_snippet(page)
-        check_text = "\n".join((page.raw_text, page.html, page.unescaped, page.widget_text))
+        snippet = _price_snippets(page)[0]
+        check_text = "\n".join((page.raw_text, page.html, page.unescaped, page.extra_text))
         if snippet and snippet in check_text:
             _supersede(store, attrs["price"])
             out["price"] = add("price", reg.value, snippet, reg.raw_value)

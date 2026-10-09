@@ -176,9 +176,11 @@ def resolve_source_text(
 
     if source_section == STRUCTURED_DATA_SENTINEL:
         html_text = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
-        return structured_source_text(
-            record["raw_text"], html_text, record.get("structured_data", {}).get("rating_widget_text", "")
-        )
+        extra = record.get("structured_data", {}).get("rating_widget_text", "")
+        rendered = record.get("rendered_text_path")
+        if rendered and Path(rendered).exists():
+            extra += "\n" + Path(rendered).read_text(encoding="utf-8", newline="")
+        return structured_source_text(record["raw_text"], html_text, extra)
 
     sections = record.get("sections", [])
     if source_section_index is None or not (0 <= source_section_index < len(sections)):

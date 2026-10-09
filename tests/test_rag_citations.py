@@ -60,7 +60,7 @@ class TestValidatedSegmentCarriesTrustedFlag:
 class TestTrustedSegmentsSkipValidation:
     def test_trusted_segment_with_no_citations_is_still_valid(self):
         """A not_mentioned disclosure has nothing to cite by definition."""
-        seg = Segment(text="The available source does not mention X.", citation_ids=[], trusted=True)
+        seg = Segment(text="The page does not mention X.", citation_ids=[], trusted=True)
         result = validate_segment(seg, {}, CORPUS)
         assert result.valid
         assert result.citation_ids == []

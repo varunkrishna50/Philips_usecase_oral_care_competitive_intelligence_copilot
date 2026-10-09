@@ -9,6 +9,7 @@ something, per 3A.12's core rule.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -79,6 +80,8 @@ ATTRIBUTE_LABELS = {
     "intensity_details": "intensity level descriptions",
     "intensity_count": "number of intensity levels",
     "battery_indicator": "battery indicator",
+    "battery_life_note": "battery life (as stated by the manufacturer)",
+    "brush_head_design": "brush head design",
 }
 
 
@@ -114,34 +117,113 @@ def resolve_attribute_status(
     return AttributeStatus(product=product, attribute=attribute, status=status, value=value, evidence=docs)
 
 
+# Asked attribute -> sibling attributes that explain it. Step 2 stores the bare
+# flag/label ("Pressure Sensor") under the asked attribute and the substance
+# (how it works, numbers, names) under these siblings. Every name must be a
+# real column of the comparison table (tests/test_rag_answer_depth.py checks).
+RELATED_ATTRIBUTES: dict[str, tuple[str, ...]] = {
+    "pressure_sensing": ("pressure_sensing_details",),
+    "app_connectivity": ("app_connectivity_details",),
+    "bluetooth_connectivity": ("bluetooth_details",),
+    "timer": ("timer_description", "zone_interval_seconds", "brushing_zones"),
+    "timer_description": ("zone_interval_seconds", "brushing_zones"),
+    "battery_life_days": ("battery_details", "battery_life_note", "battery_indicator"),
+    "battery_life_raw": ("battery_details", "battery_life_note", "battery_indicator"),
+    "charging_method": ("charging_details", "charge_time_hours"),
+    "charging_method_raw": ("charging_details", "charge_time_hours"),
+    "mode_count": ("mode_details",),
+    "modes": ("mode_details",),
+    "intensity_levels": ("intensity_details",),
+    "intensity_count": ("intensity_details",),
+    "coverage_tracking": ("coverage_tracking_details",),
+    "cleaning_technology": ("brush_head_design",),
+    "price": ("original_price", "price_after_discount", "discount_pct", "promotion_text", "availability"),
+    # the headline claim is one sentence; the page may state other figures for the same topic
+    # (the 4100: "700% more plaque" in the copy, "Up to 5x" in the spec table) and an answer must not pick one
+    "plaque_removal_claim": ("claims",),
+    "gum_health_claim": ("claims",),
+}
+
+# Only the related records about the asked topic: (asked attribute, related attribute) -> pattern
+RELATED_TOPIC_FILTERS: dict[tuple[str, str], str] = {
+    ("plaque_removal_claim", "claims"): r"plaque",
+    ("gum_health_claim", "claims"): r"\bgums?\b|gum health",
+}
+
+
+def expand_attributes(attributes: list[str]) -> list[str]:
+    """The asked attributes first, then their related detail attributes (no duplicates)."""
+    out: list[str] = []
+    for attribute in attributes:
+        if attribute not in out:
+            out.append(attribute)
+    for attribute in attributes:
+        for related in RELATED_ATTRIBUTES.get(attribute, ()):
+            if related not in out:
+                out.append(related)
+    return out
+
+
+def related_evidence(
+    product: ProductRecord,
+    attribute: str,
+    retrieval_documents: list[RetrievalDocument],
+    exclude: tuple[str, ...] = (),
+) -> list[RetrievalDocument]:
+    """Evidence for the sibling attributes of ``attribute`` (never a status statement: a
+    missing sibling just means there is nothing extra to say)."""
+    wanted = [a for a in RELATED_ATTRIBUTES.get(attribute, ()) if a not in exclude]
+    docs: list[RetrievalDocument] = []
+    for related in wanted:
+        topic = RELATED_TOPIC_FILTERS.get((attribute, related))
+        topic_rx = re.compile(topic, re.I) if topic else None
+        docs.extend(
+            d for d in retrieval_documents
+            if d.product_id == product.product_id and d.attribute == related
+            and (topic_rx is None or topic_rx.search(d.shown_text))
+        )
+    return docs
+
+
+# what a "stated but no figure" sentence says is missing, per attribute (fallback: "a specific figure for <label>")
+_UNSTATED_FIGURE = {
+    "battery_life_days": "how many days the battery lasts",
+    "battery_life_raw": "how many days the battery lasts",
+    "charge_time_hours": "how many hours charging takes",
+    "charging_method": "how it is charged",
+    "charging_method_raw": "how it is charged",
+    "mode_count": "how many modes there are",
+    "intensity_count": "how many intensity levels there are",
+    "warranty_years": "how many years the warranty lasts",
+    "brush_movements_per_min": "how many brush movements per minute it makes",
+    "price": "a price",
+}
+
+
 def status_aware_statement(attr_status: AttributeStatus) -> str:
-    """The exact phrasing templates from 3A.12/3B.8, verbalized in code
-    -- never by an LLM -- so the four statuses can never be collapsed or
-    reworded into something misleading."""
+    """The phrasing templates for the four statuses, written in code -- never by an LLM -- so they can
+    never be collapsed or reworded into something misleading. Plain words: the page, not the pipeline."""
     label = attribute_label(attr_status.attribute)
     name = attr_status.product.product_name
 
     if attr_status.status == "not_mentioned":
-        return f"The available source does not mention {label} for {name}."
+        return f"The page does not mention {label} for {name}."
 
     if attr_status.status == "stated_absent":
-        return f"The source explicitly indicates that {label} is not present for {name}."
+        return f"The page says {name} does not have {label}."
 
     if attr_status.status == "ambiguous":
-        return (
-            f"The available sources contain conflicting or ambiguous information about {label} "
-            f"for {name}, so I cannot establish a single value."
-        )
+        return f"The page gives conflicting information about {label} for {name}, so I can't give one answer."
 
     # status == "stated"
     if attr_status.value is None:
-        quote = attr_status.evidence[0].evidence_text if attr_status.evidence else ""
-        return (
-            f'The manufacturer states: "{quote}" regarding {label} for {name}, but the source does not '
-            f"provide a normalized value."
-        )
+        quote = " ".join(attr_status.evidence[0].shown_text.split()) if attr_status.evidence else ""
+        what = _UNSTATED_FIGURE.get(attr_status.attribute, f"a specific figure for {label}")
+        return f"The page does not state {what} for {name}. It says: \u201c{quote}\u201d"
 
-    return f"{name} has {_format_value(attr_status.attribute, attr_status.value)} for {label}."
+    if isinstance(attr_status.value, bool):
+        return f"{name} has {label}." if attr_status.value else f"{name} does not have {label}."
+    return f"{name}: {label} is {_format_value(attr_status.attribute, attr_status.value)}."
 
 
 def _format_value(attribute: str, value: Any) -> str:

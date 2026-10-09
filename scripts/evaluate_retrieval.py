@@ -169,7 +169,7 @@ def check_poisoned_evidence(engine: RetrievalEngine) -> tuple[bool, str]:
     # the key check is that production data was never touched).
     from src.rag.config import RETRIEVAL_DOCUMENTS_PATH
     import json
-    production_ids = {d["document_id"] for d in json.loads(RETRIEVAL_DOCUMENTS_PATH.read_text())}
+    production_ids = {d["document_id"] for d in json.loads(RETRIEVAL_DOCUMENTS_PATH.read_text(encoding="utf-8"))}
     ok = poisoned.document_id not in production_ids
     return ok, f"poisoned doc kept out of production corpus: {ok}"
 
