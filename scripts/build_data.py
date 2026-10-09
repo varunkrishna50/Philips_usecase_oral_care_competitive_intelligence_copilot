@@ -164,8 +164,8 @@ def main() -> int:
     configure_logging(args.verbose)
 
     session = requests.Session()
-    # Oral-B's robots.txt asks AI/data crawlers (including ClaudeBot/anthropic-ai)
-    # for a 10s crawl delay; Philips imposes no such requirement but we stay polite.
+    # Oral-B's robots.txt asks AI/data crawlers for a 10s crawl delay;
+    # Philips imposes no such requirement but we stay polite.
     rate_limiter = RateLimiter(delays={"oralb.com": 10.0, "www.usa.philips.com": 2.0}, default_delay=2.0)
 
     philips_discovered, philips_records, philips_failed, philips_excluded = run_philips(

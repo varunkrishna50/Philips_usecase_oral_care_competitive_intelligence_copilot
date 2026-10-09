@@ -209,12 +209,11 @@ producing partial or fabricated data.
 
 - Philips' `robots.txt` doesn't disallow the toothbrush category or
   product paths used here.
-- Oral-B's `robots.txt` names several AI/data crawlers (including
-  `ClaudeBot`, `Claude-Web`, `anthropic-ai`) with a `Crawl-delay: 10`. The
-  pipeline identifies itself with a descriptive User-Agent and enforces a
-  10-second minimum delay between requests to `oralb.com`
-  (`RateLimiter` in `src/acquisition/utils.py`), and a 2-second delay to
-  Philips.
+- Oral-B's `robots.txt` names several AI/data crawlers with a
+  `Crawl-delay: 10`. The pipeline identifies itself with a descriptive
+  User-Agent and enforces a 10-second minimum delay between requests to
+  `oralb.com` (`RateLimiter` in `src/acquisition/utils.py`), and a
+  2-second delay to Philips.
 
 ## Caching
 

@@ -18,8 +18,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger("acquisition")
 
 DEFAULT_USER_AGENT = (
-    "Mozilla/5.0 (compatible; ClaudeBot/1.0; "
-    "+https://www.anthropic.com/claude-code; research-data-acquisition)"
+    "Mozilla/5.0 (compatible; ProductsResearch/1.0; research-data-acquisition)"
 )
 
 # Tags that are page chrome / non-content, removed before text & section
