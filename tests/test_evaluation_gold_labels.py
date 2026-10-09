@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import json
+from pathlib import Path
 
 from src.evaluation import gold_labels
 
@@ -24,10 +26,10 @@ class TestIndependenceFromRagObjects:
 
 
 class TestLoadGoldCorpus:
-    def test_loads_real_24_product_corpus(self):
+    def test_loads_real_22_product_corpus(self):
         corpus = gold_labels.load_gold_corpus()
-        assert len(corpus.products) == 24
-        assert len(corpus.evidence) == 486
+        assert len(corpus.products) == 22
+        assert len(corpus.evidence) == len(json.loads((Path(__file__).resolve().parents[1] / "data" / "processed" / "evidence.json").read_text(encoding="utf-8")))
 
     def test_products_by_id_lookup(self):
         corpus = gold_labels.load_gold_corpus()
@@ -42,9 +44,9 @@ class TestLoadGoldCorpus:
 class TestResolveStatus:
     def test_not_mentioned_when_no_evidence_exists(self):
         corpus = gold_labels.load_gold_corpus()
-        product = next(p for p in corpus.products if p.get("included_items") is None
-                        and not corpus.evidence_for(p.product_id, "included_items"))
-        status, value, docs = corpus.resolve_status(product.product_id, "included_items")
+        product = next(p for p in corpus.products if p.get("charge_time_hours") is None
+                        and not corpus.evidence_for(p.product_id, "charge_time_hours"))
+        status, value, docs = corpus.resolve_status(product.product_id, "charge_time_hours")
         assert status == "not_mentioned"
         assert value is None
         assert docs == []
@@ -78,7 +80,7 @@ class TestProductsWhere:
     def test_boolean_true_filter(self):
         corpus = gold_labels.load_gold_corpus()
         matches = corpus.products_where("pressure_sensing", True)
-        assert len(matches) == 19
+        assert len(matches) == 20
 
     def test_numeric_equality_filter(self):
         corpus = gold_labels.load_gold_corpus()
@@ -96,4 +98,6 @@ class TestStatusCoverage:
         coverage = gold_labels.status_coverage()
         assert coverage["not_mentioned"]["has_real_example"] is True
         assert coverage["stated_with_null_value"]["has_real_example"] is True
-        assert coverage["stated_with_null_value"]["count"] == 8
+        # charging_method is "stated" with a null value where the page only says
+        # "charger" (no magnetic wording): 16 product rows.
+        assert coverage["stated_with_null_value"]["count"] == 14

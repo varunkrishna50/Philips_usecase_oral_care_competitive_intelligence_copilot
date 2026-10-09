@@ -1,68 +1,65 @@
 {
-  "generated_at": "2026-10-07T18:48:54.193025+00:00",
+  "generated_at": "2026-10-09T10:24:49.813222+00:00",
   "source_pages": {
     "philips": "https://www.usa.philips.com/c-m-pe/electric-toothbrushes/latest",
     "oralb": "https://oralb.com/en-us/products/compare/electric-toothbrushes"
   },
   "totals": {
-    "discovered": 24,
-    "scraped": 24,
+    "discovered": 22,
+    "scraped": 22,
     "failed": 0
   },
   "brands": {
     "Philips": {
-      "discovered_count": 11,
-      "scraped_count": 11,
+      "discovered_count": 10,
+      "scraped_count": 10,
       "failed_count": 0,
       "excluded_count": 0,
       "discovered_urls": [
-        "https://www.usa.philips.com/c-p/HX3681_23/4100-series-sonic-electric-toothbrush",
+        "https://www.usa.philips.com/c-p/HX9911_90/diamondclean-9000-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX3681_03/sonicare-3000-series-sonic-electric-toothbrush",
+        "https://www.usa.philips.com/c-p/HX7421_06/series-7100-rechargeable-toothbrush",
+        "https://www.usa.philips.com/c-p/HX9903_25/diamondclean-smart-9300-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HY1130_02/one-for-kids-by-sonicare-battery-toothbrush",
         "https://www.usa.philips.com/c-p/HY1200_25/philips-one-by-sonicare-power-toothbrush",
         "https://www.usa.philips.com/c-p/HX7410_10/series-6500-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX4031_71/3100-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX7130_01/series-5700-rechargeable-toothbrush",
-        "https://www.usa.philips.com/c-p/HX9990_13/sonicare-9900-prestige-power-toothbrush-with-senseiq",
-        "https://www.usa.philips.com/c-p/HX6321_02/sonicare-for-kids-sonic-electric-toothbrush",
-        "https://www.usa.philips.com/c-p/HY1100_02/philips-one-by-sonicare-battery-toothbrush",
-        "https://www.usa.philips.com/c-p/HX3641_02/1100-series-sonic-electric-toothbrush"
+        "https://www.usa.philips.com/c-p/HX9990_13/sonicare-9900-prestige-power-toothbrush-with-senseiq"
       ],
       "excluded_urls": [],
       "scraped_urls": [
-        "https://www.usa.philips.com/c-p/HX3681_23/4100-series-sonic-electric-toothbrush",
+        "https://www.usa.philips.com/c-p/HX9911_90/diamondclean-9000-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX3681_03/sonicare-3000-series-sonic-electric-toothbrush",
+        "https://www.usa.philips.com/c-p/HX7421_06/series-7100-rechargeable-toothbrush",
+        "https://www.usa.philips.com/c-p/HX9903_25/diamondclean-smart-9300-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HY1130_02/one-for-kids-by-sonicare-battery-toothbrush",
         "https://www.usa.philips.com/c-p/HY1200_25/philips-one-by-sonicare-power-toothbrush",
         "https://www.usa.philips.com/c-p/HX7410_10/series-6500-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX4031_71/3100-rechargeable-toothbrush",
         "https://www.usa.philips.com/c-p/HX7130_01/series-5700-rechargeable-toothbrush",
-        "https://www.usa.philips.com/c-p/HX9990_13/sonicare-9900-prestige-power-toothbrush-with-senseiq",
-        "https://www.usa.philips.com/c-p/HX6321_02/sonicare-for-kids-sonic-electric-toothbrush",
-        "https://www.usa.philips.com/c-p/HY1100_02/philips-one-by-sonicare-battery-toothbrush",
-        "https://www.usa.philips.com/c-p/HX3641_02/1100-series-sonic-electric-toothbrush"
+        "https://www.usa.philips.com/c-p/HX9990_13/sonicare-9900-prestige-power-toothbrush-with-senseiq"
       ],
       "failed_urls": []
     },
     "Oral-B": {
-      "discovered_count": 13,
-      "scraped_count": 13,
+      "discovered_count": 12,
+      "scraped_count": 12,
       "failed_count": 0,
       "excluded_count": 14,
       "discovered_urls": [
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-6-electric-toothbrush-black-lava/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-rechargeable-electric-toothbrush-aqua-marine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-10-rechargeable-electric-toothbrush-cosmic-black/",
+        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-genius-rechargeable-electric-toothbrush-sapphire-blue/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-ultimate-clean-rechargeable-electric-toothbrush/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-8-electric-toothbrush-violet-ametrine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-7-electric-toothbrush-black/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-genius-rechargeable-electric-toothbrush-sapphire-blue/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-5-customizable-clean-rechargeable-electric-toothbrush-matte-black/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-4-clean-gum-care-rechargeable-electric-toothbrush-azalea-pink/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-4-rechargeable-electric-toothbrush-matte-white/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-3-clean-protect-rechargeable-electric-toothbrush-azalea-pink/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/io-series-2-rechargeable-electric-toothbrush-starter-kit-forest-green/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit-night-black/"
+        "https://oralb.com/en-us/products/electric-toothbrushes/io-series-2-rechargeable-electric-toothbrush-starter-kit-pure-white/"
       ],
       "excluded_urls": [
         {
@@ -154,16 +151,15 @@
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-6-electric-toothbrush-black-lava/",
         "https://oralb.com/en-us/products/shop-all/oral-b-io-series-9-rechargeable-electric-toothbrush-aqua-marine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-10-rechargeable-electric-toothbrush-cosmic-black/",
+        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-genius-rechargeable-electric-toothbrush-sapphire-blue/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-ultimate-clean-rechargeable-electric-toothbrush/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-8-electric-toothbrush-violet-ametrine/",
         "https://oralb.com/en-us/products/electric-toothbrushes/io-series-7-electric-toothbrush-black/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-9-genius-rechargeable-electric-toothbrush-sapphire-blue/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-5-customizable-clean-rechargeable-electric-toothbrush-matte-black/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-4-clean-gum-care-rechargeable-electric-toothbrush-azalea-pink/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-4-rechargeable-electric-toothbrush-matte-white/",
         "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-3-clean-protect-rechargeable-electric-toothbrush-azalea-pink/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/io-series-2-rechargeable-electric-toothbrush-starter-kit-forest-green/",
-        "https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit-night-black/"
+        "https://oralb.com/en-us/products/electric-toothbrushes/io-series-2-rechargeable-electric-toothbrush-starter-kit-pure-white/"
       ],
       "failed_urls": []
     }

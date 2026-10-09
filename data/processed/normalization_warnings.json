@@ -16,7 +16,7 @@
   {
     "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [49.99, 329.99] distinct from the extracted standalone price $399.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [49.99] distinct from the extracted standalone price $399.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
   },
@@ -35,17 +35,24 @@
     "section_heading": "How long does the Oral-B iO Series 10 battery last?"
   },
   {
-    "product_id": "oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit",
-    "code": "cross_product_comparison_section_excluded",
-    "message": "Excluded comparison-framed section \"What's the difference between Oral-B Pro and iO2?\" from evidence consideration.",
-    "attribute": null,
-    "section_heading": "What's the difference between Oral-B Pro and iO2?"
+    "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('smart charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
+    "section_heading": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black"
   },
   {
-    "product_id": "oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit",
-    "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [64.99, 89.99] distinct from the extracted standalone price $44.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+    "code": "price_hidden_out_of_stock",
+    "message": "The page shows no price because the product is out of stock; the listed number is kept only in listed_price_hidden.",
     "attribute": "price",
+    "section_heading": null
+  },
+  {
+    "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+    "code": "box_quantity_statement_conflicts_with_box_list",
+    "message": "A comparison FAQ says 'Series 10 includes just 1.'; compare with the 'What's in the box' list before relying on brush head counts.",
+    "attribute": "brush_heads_included",
     "section_heading": null
   },
   {
@@ -58,8 +65,22 @@
   {
     "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [64.99, 89.99, 329.99] distinct from the extracted standalone price $44.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [89.99] distinct from the extracted standalone price $64.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
+    "section_heading": null
+  },
+  {
+    "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
+    "section_heading": "iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White"
+  },
+  {
+    "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
+    "code": "brush_head_quantity_not_stated",
+    "message": "'What's in the box' lists brush heads without a quantity (['Gum & Sensitive Replacement Brush Head', 'Ultimate Clean Replacement Brush Head']); no count reported.",
+    "attribute": "brush_heads_included",
     "section_heading": null
   },
   {
@@ -79,8 +100,22 @@
   {
     "product_id": "oralb_io-series-3-clean-protect-rechargeable-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [64.99, 89.99, 329.99] distinct from the extracted standalone price $69.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [89.99] distinct from the extracted standalone price $69.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
+    "section_heading": null
+  },
+  {
+    "product_id": "oralb_io-series-3-clean-protect-rechargeable-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
+    "section_heading": "Oral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink"
+  },
+  {
+    "product_id": "oralb_io-series-3-clean-protect-rechargeable-electric-toothbrush",
+    "code": "marker_without_disclaimer",
+    "message": "Statement 'Complete with a travel case, the iO Series 3 delivers a fresh, confident clean w' carries marker '*' but the page lists no matching disclaimer.",
+    "attribute": "disclaimers",
     "section_heading": null
   },
   {
@@ -93,9 +128,16 @@
   {
     "product_id": "oralb_io-series-4-clean-gum-care-rechargeable-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [89.99, 99.99, 329.99] distinct from the extracted standalone price $79.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [89.99, 99.99] distinct from the extracted standalone price $79.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
+  },
+  {
+    "product_id": "oralb_io-series-4-clean-gum-care-rechargeable-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
+    "section_heading": "Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink"
   },
   {
     "product_id": "oralb_io-series-4-rechargeable-electric-toothbrush",
@@ -107,7 +149,7 @@
   {
     "product_id": "oralb_io-series-4-rechargeable-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [89.99, 99.99, 329.99] distinct from the extracted standalone price $79.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [89.99, 99.99] distinct from the extracted standalone price $79.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
   },
@@ -119,9 +161,16 @@
     "section_heading": "Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White"
   },
   {
+    "product_id": "oralb_io-series-4-rechargeable-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
+    "section_heading": "Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White"
+  },
+  {
     "product_id": "oralb_io-series-5-customizable-clean-rechargeable-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [99.99, 329.99] distinct from the extracted standalone price $119.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [99.99] distinct from the extracted standalone price $119.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
   },
@@ -130,6 +179,13 @@
     "code": "unnormalizable_value",
     "message": "Battery life is explicitly mentioned but no numeric duration can be safely normalized.",
     "attribute": "battery_life_days",
+    "section_heading": "Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black"
+  },
+  {
+    "product_id": "oralb_io-series-5-customizable-clean-rechargeable-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
     "section_heading": "Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black"
   },
   {
@@ -142,7 +198,7 @@
   {
     "product_id": "oralb_io-series-6-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [159.99, 329.99] distinct from the extracted standalone price $119.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [159.99] distinct from the extracted standalone price $119.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
   },
@@ -151,6 +207,13 @@
     "code": "unnormalizable_value",
     "message": "Battery life is explicitly mentioned but no numeric duration can be safely normalized.",
     "attribute": "battery_life_days",
+    "section_heading": "Oral-B iO Series 6 Electric Toothbrush, Black Lava"
+  },
+  {
+    "product_id": "oralb_io-series-6-electric-toothbrush",
+    "code": "unnormalizable_value",
+    "message": "Charging is mentioned ('Charger') but cannot be safely mapped to a controlled charging-method category.",
+    "attribute": "charging_method",
     "section_heading": "Oral-B iO Series 6 Electric Toothbrush, Black Lava"
   },
   {
@@ -163,7 +226,7 @@
   {
     "product_id": "oralb_io-series-7-electric-toothbrush",
     "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [49.99, 329.99] distinct from the extracted standalone price $219.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
+    "message": "Page also contains other price value(s) [49.99] distinct from the extracted standalone price $219.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
     "attribute": "price",
     "section_heading": null
   },
@@ -175,20 +238,6 @@
     "section_heading": "What is the difference between the different models in the iO series?"
   },
   {
-    "product_id": "oralb_io-series-8-electric-toothbrush",
-    "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [329.99] distinct from the extracted standalone price $249.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
-    "attribute": "price",
-    "section_heading": null
-  },
-  {
-    "product_id": "oralb_io-series-9-genius-rechargeable-electric-toothbrush",
-    "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [329.99] distinct from the extracted standalone price $169.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
-    "attribute": "price",
-    "section_heading": null
-  },
-  {
     "product_id": "oralb_io-series-9-genius-rechargeable-electric-toothbrush",
     "code": "unnormalizable_value",
     "message": "Battery life is explicitly mentioned but no numeric duration can be safely normalized.",
@@ -197,24 +246,10 @@
   },
   {
     "product_id": "oralb_io-series-9-rechargeable-electric-toothbrush",
-    "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [329.99] distinct from the extracted standalone price $169.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
-    "attribute": "price",
-    "section_heading": null
-  },
-  {
-    "product_id": "oralb_io-series-9-rechargeable-electric-toothbrush",
     "code": "unnormalizable_value",
     "message": "Battery life is explicitly mentioned but no numeric duration can be safely normalized.",
     "attribute": "battery_life_days",
     "section_heading": "How long does an Oral-B iO Series 9 battery last?"
-  },
-  {
-    "product_id": "oralb_io-ultimate-clean-rechargeable-electric-toothbrush",
-    "code": "secondary_price_signal_present",
-    "message": "Page also contains other price value(s) [329.99] distinct from the extracted standalone price $289.99 (e.g. an RRP/original-price element, a bundle option, or a subscription card). Not used -- review raw HTML if a sale/original price distinction matters here.",
-    "attribute": "price",
-    "section_heading": null
   },
   {
     "product_id": "oralb_io-ultimate-clean-rechargeable-electric-toothbrush",
@@ -222,13 +257,6 @@
     "message": "Charging is mentioned ('Chargers') but cannot be safely mapped to a controlled charging-method category.",
     "attribute": "charging_method",
     "section_heading": "iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack"
-  },
-  {
-    "product_id": "philips_hx3641-02",
-    "code": "cross_product_comparison_section_excluded",
-    "message": "Excluded comparison-framed section 'Up to 3x better plaque removal vs a manual toothbrush*' from evidence consideration.",
-    "attribute": null,
-    "section_heading": "Up to 3x better plaque removal vs a manual toothbrush*"
   },
   {
     "product_id": "philips_hx3681-03",
@@ -245,10 +273,24 @@
     "section_heading": "14-day long lasting battery life"
   },
   {
-    "product_id": "philips_hx3681-23",
-    "code": "cross_product_comparison_section_excluded",
-    "message": "Excluded comparison-framed section 'Up to 7x better plaque removal vs a manual toothbrush*' from evidence consideration.",
-    "attribute": null,
-    "section_heading": "Up to 7x better plaque removal vs a manual toothbrush*"
+    "product_id": "philips_hx3681-03",
+    "code": "ambiguous_disclaimer_marker",
+    "message": "Marker '*' is used by more than one disclaimer; statements with it are linked to all of them.",
+    "attribute": "disclaimers",
+    "section_heading": null
+  },
+  {
+    "product_id": "philips_hx4031-71",
+    "code": "intensity_count_mismatch",
+    "message": "The feature text says 3 intensities (High, Medium, Low) but the specification table lists 2 (High, Low); the feature text is used.",
+    "attribute": "intensity_levels",
+    "section_heading": null
+  },
+  {
+    "product_id": "philips_hx7421-06",
+    "code": "unlinked_disclaimer",
+    "message": "No statement on the page carries the marker of disclaimer 'vs. a manual toothbrush'.",
+    "attribute": "disclaimers",
+    "section_heading": null
   }
 ]

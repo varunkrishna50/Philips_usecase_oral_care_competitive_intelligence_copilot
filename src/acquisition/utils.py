@@ -25,6 +25,14 @@ DEFAULT_USER_AGENT = (
 # extraction. This is "cleaning" raw markup noise, not normalizing claims.
 BOILERPLATE_TAGS = ["script", "style", "noscript", "nav", "footer", "svg", "iframe"]
 
+# CSS selectors for blocks that are in the DOM but never shown to a shopper
+# (verified with a headless browser: is_visible() is False). Oral-B's
+# BigCommerce template dumps internal merchandising fields here
+# (TextFeatureN, "Shop By Feature", algolia-*, bvProductId, SKU/UPC...).
+# They are not product copy, so they must not become evidence; the parsed
+# fields are kept separately in structured_data["custom_fields"].
+HIDDEN_METADATA_SELECTORS = ["dl.productView-info"]
+
 HEADING_TAGS = ["h1", "h2", "h3", "h4"]
 TEXT_TAGS = ["p", "li", "dd", "dt", "span", "td", "th", "blockquote"]
 
@@ -172,6 +180,9 @@ def clean_soup(html: str) -> BeautifulSoup:
     for tag_name in BOILERPLATE_TAGS:
         for tag in soup.find_all(tag_name):
             tag.decompose()
+    for selector in HIDDEN_METADATA_SELECTORS:
+        for tag in soup.select(selector):
+            tag.decompose()
     return soup
 
 
@@ -182,33 +193,83 @@ def extract_visible_text(soup: BeautifulSoup) -> str:
     return "\n".join(lines)
 
 
+# Elements that start a new line of text. Everything else (a, span, strong,
+# em, b, i, ...) is inline and is joined to the text around it.
+BLOCK_TAGS = frozenset({
+    "address", "article", "aside", "blockquote", "body", "button", "dd", "details", "div", "dl", "dt",
+    "fieldset", "figcaption", "figure", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hr",
+    "li", "main", "ol", "option", "p", "pre", "section", "summary", "table", "tbody", "td", "tfoot",
+    "th", "thead", "tr", "ul",
+})
+
+
 def extract_sections(soup: BeautifulSoup) -> list[dict]:
-    """Walk headings and following text-bearing tags in document order,
-    grouping text under the most recent heading. Not based on nth-child
-    position -- based on tag semantics only.
+    """Group the page's text under the most recent heading, in document order.
+
+    Text is split into lines at block-element boundaries and <br>: the text of
+    one block (including its inline children such as <strong>/<a>/<span>) is
+    one line, and text that sits directly inside a container (e.g. a bare
+    text node in a <ul>) is not lost. This avoids both the fragments and the
+    duplicates that come from treating every nested tag as its own line.
+    Driven by tag semantics only, not nth-child position.
     """
+    from bs4 import Comment, NavigableString, Tag
+
     sections: list[dict] = []
-    current_heading = "Page content"
-    current_texts: list[str] = []
+    state = {"heading": "Page content", "lines": []}
+    heading_names = set(HEADING_TAGS)
+
+    def flush_section() -> None:
+        if state["lines"]:
+            sections.append({"heading": state["heading"], "text": "\n".join(state["lines"])})
+        state["lines"] = []
+
+    block_cache: dict[int, Optional[Tag]] = {}
+
+    def nearest_block(tag: Tag) -> Optional[Tag]:
+        key = id(tag)
+        if key in block_cache:
+            return block_cache[key]
+        node = tag
+        while node is not None and not (isinstance(node, Tag) and node.name in BLOCK_TAGS):
+            node = node.parent
+        block_cache[key] = node
+        return node
+
+    current_block: Optional[Tag] = None
+    buffer: list[str] = []
+
+    def flush_line() -> None:
+        nonlocal buffer
+        text = re.sub(r"\s+", " ", " ".join(buffer)).strip()
+        buffer = []
+        if not text or current_block is None:
+            return
+        if current_block.name in heading_names:
+            flush_section()
+            state["heading"] = text
+        elif current_block.find_parent(HEADING_TAGS) is None:
+            state["lines"].append(text)
 
     root = soup.body or soup
-    for tag in root.find_all(HEADING_TAGS + TEXT_TAGS):
-        if tag.name in HEADING_TAGS:
-            if current_texts:
-                sections.append({"heading": current_heading, "text": "\n".join(current_texts)})
-            heading_text = tag.get_text(" ", strip=True)
-            current_heading = heading_text or current_heading
-            current_texts = []
-        else:
-            # Skip text that is itself nested inside a heading tag.
-            if tag.find_parent(HEADING_TAGS):
-                continue
-            txt = tag.get_text(" ", strip=True)
-            if txt:
-                current_texts.append(txt)
-
-    if current_texts:
-        sections.append({"heading": current_heading, "text": "\n".join(current_texts)})
+    for node in root.descendants:
+        if isinstance(node, Tag):
+            if node.name == "br":
+                flush_line()
+                current_block = None
+            continue
+        if isinstance(node, Comment) or not isinstance(node, NavigableString):
+            continue
+        text = str(node).strip()
+        if not text:
+            continue
+        block = nearest_block(node.parent)
+        if block is not current_block:
+            flush_line()
+            current_block = block
+        buffer.append(text)
+    flush_line()
+    flush_section()
     return sections
 
 

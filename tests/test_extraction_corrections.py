@@ -116,57 +116,32 @@ class TestFaqQuestionNotUsedAsEvidence:
 # 2. included_items from labeled feature pairs (bare accessory names)
 # ---------------------------------------------------------------------------
 
-class TestIncludedItemsFromLabeledFeatures:
-    def test_bare_accessory_names_are_captured_without_a_leading_digit(self, tmp_path):
-        record = make_raw_record(
-            tmp_path, brand="Oral-B", slug="o1",
-            sections=[section(
-                "Features",
-                "TextFeature1:\n7 Smart Brushing Modes\nTextFeature2:\nMagnetic Charger\n"
-                "TextFeature3:\nCharging Travel Case\n",
-            )],
-        )
-        usable = usable_sections(record["sections"], "oralb_o1", [])
-        store = EvidenceStore()
-        generic_av = utils.extract_included_items(usable, "oralb_o1", record, store, [])
-        labeled_items, _ = oralb.extract_labeled_included_items(usable, "oralb_o1", record, store, [])
-        assert "Magnetic Charger" in labeled_items
-        assert "Charging Travel Case" in labeled_items
-        assert "7 Smart Brushing Modes" not in labeled_items  # a capability, not a package item
+class TestIncludedItemsFromBoxList:
+    """Oral-B included_items = the page's "What's in the box" list. Internal
+    merchandising fields (TextFeatureN / Shop By Feature) are never evidence."""
 
-    def test_shop_by_feature_label_is_also_read(self, tmp_path):
-        record = make_raw_record(
-            tmp_path, brand="Oral-B", slug="o1",
-            sections=[section(
-                "Features",
-                "Shop By Feature:\n1 Brush\nShop By Feature:\n1 refill head\n"
-                "Shop By Feature:\n1 Magnetic Travel Pouch\nShop By Feature:\n1-Magnetic Charger\n",
-            )],
-        )
-        usable = usable_sections(record["sections"], "oralb_o1", [])
-        store = EvidenceStore()
-        generic_av = utils.extract_included_items(usable, "oralb_o1", record, store, [])
-        assert generic_av.status == "stated"
-        assert set(generic_av.value) == {"1 Brush", "1 refill head", "1 Magnetic Travel Pouch", "1-Magnetic Charger"}
-
-    def test_charging_station_as_a_bare_spec_does_not_duplicate_an_existing_digit_item(self, tmp_path):
-        """"Charging Travel Case" as a bare spec tag must not be silently
-        promoted if an equivalent, more specific digit-prefixed item is
-        already captured -- the merge in oralb.py de-dupes by substring."""
-        record = make_raw_record(
-            tmp_path, brand="Oral-B", slug="o1",
-            sections=[section(
-                "Features",
-                "1 Premium Charging Travel Case\n"
-                "TextFeature1:\nCharging Travel Case\n",
-            )],
-        )
+    def test_series2_box_list_is_exact_and_has_no_travel_case(self):
+        record = _load_real_record("oralb", "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit")
         store, warnings = EvidenceStore(), []
         product = oralb.normalize_product(record, store, warnings)
-        values = product.included_items.value or []
-        # Only the more specific digit-prefixed version should remain.
-        assert "1 Premium Charging Travel Case" in values
-        assert "Charging Travel Case" not in values
+        assert product.included_items.value == [
+            "Oral-B iO2 Electric Toothbrush",
+            "Gum & Sensitive Replacement Brush Head",
+            "Ultimate Clean Replacement Brush Head",
+            "Charger",
+        ]
+        assert product.travel_case_included.status == "not_mentioned"
+        assert product.brush_heads_included.status == "not_mentioned"  # two head types, no quantity stated
+
+    def test_hidden_custom_fields_are_never_evidence(self):
+        for slug in ("oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
+                     "oralb_io-series-9-rechargeable-electric-toothbrush"):
+            record = _load_real_record("oralb", slug)
+            store = EvidenceStore()
+            oralb.normalize_product(record, store, [])
+            for ev in store.all().values():
+                assert not ev.evidence_text.startswith(("TextFeature", "Shop By Feature", "algolia", "bvProductId")), ev
+            assert "Shop By Feature" not in record["raw_text"]
 
     @pytest.mark.parametrize(
         "slug",
@@ -320,12 +295,15 @@ class TestBatteryLifeFalsePositives:
         assert product.battery_life_days.status == "not_mentioned"
         assert product.battery_life_raw.status == "not_mentioned"
 
-    def test_real_data_one_for_kids_battery_toothbrush_not_mentioned(self):
+    def test_real_data_one_for_kids_battery_life_comes_from_the_spec_row_not_the_product_name(self):
+        """The product *name* contains "Battery toothbrush" (a power-source
+        descriptor, never a runtime). The runtime is stated in the spec
+        table row "Operating time (full to empty): 90 days"."""
         record = _load_real_record("philips", "philips_hy1130-02")
         store, warnings = EvidenceStore(), []
         product = philips.normalize_product(record, store, warnings)
-        assert product.battery_life_days.status == "not_mentioned"
-        assert product.battery_life_raw.status == "not_mentioned"
+        assert product.battery_life_days.value == 90
+        assert product.battery_life_raw.value == "Operating time (full to empty): 90 days"
 
     def test_real_data_series_10_battery_level_indicator_excluded(self):
         record = _load_real_record("oralb", "oralb_io-series-10-rechargeable-electric-toothbrush")

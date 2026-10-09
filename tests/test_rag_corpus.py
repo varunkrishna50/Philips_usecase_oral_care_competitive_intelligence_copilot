@@ -12,11 +12,11 @@ from src.rag.config import EVIDENCE_JSON
 
 def test_product_corpus_matches_actual_step2_output():
     products = corpus.load_product_corpus()
-    assert len(products) == 24
+    assert len(products) == 22
     brands = {p.brand for p in products}
     assert brands == {"Philips", "Oral-B"}
-    assert sum(1 for p in products if p.brand == "Oral-B") == 13
-    assert sum(1 for p in products if p.brand == "Philips") == 11
+    assert sum(1 for p in products if p.brand == "Oral-B") == 12
+    assert sum(1 for p in products if p.brand == "Philips") == 10
 
 
 def test_product_corpus_ids_are_unique():

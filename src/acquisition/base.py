@@ -134,6 +134,30 @@ def fetch_and_prepare(
     )
 
 
+def prepare_outcome(
+    html: str,
+    final_url: str,
+    status: int = 200,
+    redirect_chain: list[str] | None = None,
+    method: str = "requests_cache",
+) -> FetchOutcome:
+    """The post-fetch half of ``fetch_and_prepare`` for HTML already on disk
+    (no request, no JS fallback): used to re-derive records offline."""
+    raw_soup = BeautifulSoup(html, "lxml")
+    soup = clean_soup(html)
+    return FetchOutcome(
+        html=html,
+        soup=soup,
+        raw_text=extract_visible_text(soup),
+        sections=extract_sections(soup),
+        structured_data={"json_ld": extract_json_ld(raw_soup), "meta_tags": extract_meta_tags(raw_soup)},
+        final_url=final_url,
+        redirect_chain=redirect_chain or [],
+        status=status,
+        method=method,
+    )
+
+
 def fetch_listing_page(
     url: str,
     session: requests.Session,
@@ -169,12 +193,26 @@ def record_html_path(html_dir: Path, brand: str, slug: str) -> Path:
     return html_dir / f"{brand}_{slug}.html"
 
 
+def portable_html_path(html_path: Path, html_dir: Path) -> str:
+    """Repo-relative POSIX path (data/raw/html/<brand>/<file>) so records
+    stay readable on any machine; html_dir is <repo>/data/raw/html/<brand>.
+    """
+    try:
+        return html_path.resolve().relative_to(html_dir.resolve().parents[3]).as_posix()
+    except (ValueError, IndexError):
+        return str(html_path)
+
+
 def load_cached_record(raw_dir: Path, brand: str, slug: str) -> Optional[ProductRecord]:
     path = record_json_path(raw_dir, brand, slug)
     if not path.exists():
         return None
     try:
-        return ProductRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        record = ProductRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        if record.details is None:
+            logger.info("Cached record %s predates structured details; will re-fetch", path)
+            return None
+        return record
     except Exception as exc:  # noqa: BLE001
         logger.warning("Failed to load cached record %s (%s); will re-fetch", path, exc)
         return None
@@ -188,6 +226,7 @@ def save_record(record: ProductRecord, html_content: str, raw_dir: Path, html_di
     html_path = record_html_path(html_dir, brand_key, slug)
     html_path.parent.mkdir(parents=True, exist_ok=True)
     html_path.write_text(html_content, encoding="utf-8")
+    record.raw_html_path = portable_html_path(html_path, html_dir)
 
     json_path = record_json_path(raw_dir, brand_key, slug)
     json_path.parent.mkdir(parents=True, exist_ok=True)

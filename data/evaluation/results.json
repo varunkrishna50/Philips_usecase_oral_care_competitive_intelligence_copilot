@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-10-08T12:10:15.538970+00:00",
+  "timestamp": "2026-10-09T10:38:26.611978+00:00",
   "mode": "offline",
   "corpus": {
-    "product_count": 24,
-    "evidence_count": 486
+    "product_count": 22,
+    "evidence_count": 996
   },
   "model_configuration": {
     "provider": "openai",
@@ -22,13 +22,13 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: \"price\": \"399.99\",\n            \"itemCondition\" : \"https:/ [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: 1-Magnetic Charger [S3] [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The iO Series 10 rechargeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding you for coverage, brushing time, and brushing pressure for an effective clean every day. The iO Series 10 rechargeable electric toothbrush combines gentle micro-vibrations with a unique dentist-inspired round brush head for the feel of a professional purifying clean. [S5]",
+      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\nThe manufacturer states: \"rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding\" regarding charging method for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: <meta property=\"product:price:amount\" content=\"399.99\" /> [S3]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The iO Series 10 rechargeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding you for coverage, brushing time, and brushing pressure for an effective clean every day. The iO Series 10 rechargeable electric toothbrush combines gentle micro-vibrations with a unique dentist-inspired round brush head for the feel of a professional purifying clean. [S5]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 4,
-        "trusted_segments": 4,
+        "total_segments": 5,
+        "trusted_segments": 5,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -45,15 +45,15 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "The available source does not mention battery life for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink.\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink: 4 SMART Brushing Modes [S1]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink: 1-Magnetic Charger [S2] [S3]",
+      "answer_text": "The available source does not mention battery life for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink.\n\nThe manufacturer states: \"(1) Oral\u2011B iO4 Electric Toothbrush (2) Replacement Brush Heads (1) Charger (1) Travel Case What is covered in my Oral-B warranty? Your Oral-B warranty starts on the day of purchase and runs for 2 years.\" regarding charging method for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, but the source does not provide a normalized value. [S1]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink: With 4 Smart Cleaning Modes\u2014Daily Clean, Whiten, Sensitive, and Super Sensitive\u2014the iO Series 4 lets you personalize your brushing experience. [S2]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink: (1) Oral\u2011B iO4 Electric Toothbrush (2) Replacement Brush Heads (1) Charger (1) Travel Case What is covered in my Oral-B warranty? Your Oral-B warranty starts on the day of purchase and runs for 2 years. [S3]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 3,
-        "trusted_segments": 3,
+        "total_segments": 4,
+        "trusted_segments": 4,
         "untrusted_segments": 0,
-        "presence_rate": 0.6666666666666666,
+        "presence_rate": 0.75,
         "validity_rate_all": 1.0,
         "validity_rate_untrusted_only": 1.0
       }
@@ -108,13 +108,13 @@
       "id": "attr_bluetooth_005",
       "category": "direct_attribute",
       "question": "Does the Oral-B iO Series 6 Electric Toothbrush, Black Lava have Bluetooth?",
-      "verdict": "pass",
-      "passed": true,
-      "detail": "product/attribute mentioned with citations",
+      "verdict": "fail",
+      "passed": false,
+      "detail": "answer is missing a Sources section despite must_cite=true",
       "llm_called": false,
       "fallback_used": false,
-      "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "Oral-B iO Series 6 Electric Toothbrush, Black Lava: a regular manual toothbrush, and Bluetooth technology connects your brush to the Oral-B App to track your routine. [S1]",
+      "fallback_reason": null,
+      "answer_text": "The available source does not mention Bluetooth connectivity for Oral-B iO Series 6 Electric Toothbrush, Black Lava.",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -122,7 +122,7 @@
         "total_segments": 1,
         "trusted_segments": 1,
         "untrusted_segments": 0,
-        "presence_rate": 1.0,
+        "presence_rate": 0.0,
         "validity_rate_all": 1.0,
         "validity_rate_untrusted_only": 1.0
       }
@@ -154,19 +154,50 @@
       "id": "attr_battery_007",
       "category": "direct_attribute",
       "question": "What is the battery life of the 1100 Series Sonic electric toothbrush?",
-      "verdict": "pass",
-      "passed": true,
-      "detail": "product/attribute mentioned with citations",
+      "verdict": "fail",
+      "passed": false,
+      "detail": "product/attribute mentioned with citations; groundedness issues: [{'segment': 'Sonicare 3100 Series Sonic electric toothbrush: 14-day long lasting battery life', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'Sonicare 3100 Series Sonic electric toothbrush', not among the expected products for this question\"}, {'segment': 'Oral-B iO Series 6 Electric Toothbrush, Black Lava: Oral-B\u2019s long-lasting lithium-ion battery is designed for extended u', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'Oral-B iO Series 6 Electric Toothbrush, Black Lava', not among the expected products for this question\"}, {'segment': 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The Oral-B iO Series 10 has a long-lasting lithium-ion batt', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question\"}, {'segment': 'Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue: The Oral-B iO Series 9 uses a long-lasting re', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue', not among the expected products for this question\"}, {'segment': 'Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black: Long-lasting lithium-ion battery is', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black', not among the expected products for this question\"}, {'segment': 'Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine: The Oral-B iO Series 9 uses a long-lasting rechargeabl', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine', not among the expected products for this question\"}]",
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "1100 Series Sonic electric toothbrush: 14-day battery life [S1] [S2]\n\n1100 Series Sonic electric toothbrush: Sonicare technology combined with our brush action gently removes plaque up to 3x better* than a manual toothbrush. [S3]",
+      "answer_text": "Sonicare 3100 Series Sonic electric toothbrush: 14-day long lasting battery life [S1] [S2]\n\nOral-B iO Series 6 Electric Toothbrush, Black Lava: Oral-B\u2019s long-lasting lithium-ion battery is designed for extended use between charges and is [S3] [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges. [S5] [S6]\n\nOral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue: The Oral-B iO Series 9 uses a long-lasting rechargeable lithium-ion battery designed for extended use between charges. [S7]\n\nOral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black: Long-lasting lithium-ion battery is great for travel. [S8] [S9]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine: The Oral-B iO Series 9 uses a long-lasting rechargeable lithium-ion battery designed for extended use between charges. [S10]",
       "usage": null,
       "latency_seconds": null,
-      "groundedness_issues": [],
+      "groundedness_issues": [
+        {
+          "segment": "Sonicare 3100 Series Sonic electric toothbrush: 14-day long lasting battery life",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'Sonicare 3100 Series Sonic electric toothbrush', not among the expected products for this question"
+        },
+        {
+          "segment": "Oral-B iO Series 6 Electric Toothbrush, Black Lava: Oral-B\u2019s long-lasting lithium-ion battery is designed for extended u",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'Oral-B iO Series 6 Electric Toothbrush, Black Lava', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The Oral-B iO Series 10 has a long-lasting lithium-ion batt",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question"
+        },
+        {
+          "segment": "Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue: The Oral-B iO Series 9 uses a long-lasting re",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue', not among the expected products for this question"
+        },
+        {
+          "segment": "Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black: Long-lasting lithium-ion battery is",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black', not among the expected products for this question"
+        },
+        {
+          "segment": "Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine: The Oral-B iO Series 9 uses a long-lasting rechargeabl",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine', not among the expected products for this question"
+        }
+      ],
       "citation_metrics": {
-        "total_segments": 2,
-        "trusted_segments": 2,
+        "total_segments": 6,
+        "trusted_segments": 6,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -183,7 +214,7 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "The manufacturer states: \"The Oral-B iO Series 9 uses a long-lasting rechargeable lithium-ion battery designed for extended use between charges.\" regarding battery life for Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine, but the source does not provide a normalized value. [S1]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine: 1-Magnetic Charger [S2] [S3]",
+      "answer_text": "The manufacturer states: \"The Oral-B iO Series 9 uses a long-lasting rechargeable lithium-ion battery designed for extended use between charges.\" regarding battery life for Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine, but the source does not provide a normalized value. [S1]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine: The Oral-B iO Magnetic Charger delivers a full charge in just ~3 hours. [S2] [S3]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -206,13 +237,13 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: 1-Magnetic Charger [S2] [S3]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Switch to Oral-B\u2019s most advanced technology for 100% more plaque removal in just 1 week and [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: even 4X more along the gumline vs. [S5]",
+      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\nThe manufacturer states: \"rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding\" regarding charging method for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding [S3]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Switch to Oral-B\u2019s most advanced technology for 100% more plaque removal in just 1 week and even 4X more along the gumline vs. a manual brush. [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: even 4X more along the gumline vs. a manual brush. [S5]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 4,
-        "trusted_segments": 4,
+        "total_segments": 5,
+        "trusted_segments": 5,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -229,7 +260,7 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Comparisons are answered deterministically; no arithmetic is delegated to the LLM (3B.1).",
-      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has a stated price of $399.99, while Sonicare Prestige 9900 Rechargeable Toothbrush has $379.96 -- a difference of $20.03. [S1] [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has a stated number of brushing modes of 7, while Sonicare Prestige 9900 Rechargeable Toothbrush has 5 -- a difference of 2. [S3] [S4]",
+      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has a stated price of $399.99, while Sonicare Prestige 9900 Rechargeable Toothbrush has $399.96 -- a difference of $0.03. [S1] [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has a stated number of brushing modes of 7, while Sonicare Prestige 9900 Rechargeable Toothbrush has 5 -- a difference of 2. [S3] [S4]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -252,7 +283,7 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Comparisons are answered deterministically; no arithmetic is delegated to the LLM (3B.1).",
-      "answer_text": "Both Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink and Sonicare Prestige 9900 Rechargeable Toothbrush have pressure sensing. [S1] [S2]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has this feature for app connectivity. The available source does not mention app connectivity for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S3]\n\nThe available source does not mention battery life for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink. The available source does not mention battery life for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute.\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has magnetic for charging method. The available source does not mention charging method for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S4]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has Magnetic Charger for charging method. The available source does not mention charging method for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S5]",
+      "answer_text": "Both Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink and Sonicare Prestige 9900 Rechargeable Toothbrush have pressure sensing. [S1] [S2]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has this feature for app connectivity. The available source does not mention app connectivity for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S3]\n\nThe available source does not mention battery life for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink. The available source does not mention battery life for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute.\n\nThe manufacturer states: \"(1) Oral\u2011B iO4 Electric Toothbrush (2) Replacement Brush Heads (1) Charger (1) Travel Case What is covered in my Oral-B warranty? Your Oral-B warranty starts on the day of purchase and runs for 2 years.\" regarding charging method for Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, but the source does not provide a normalized value. The available source does not mention charging method for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S4]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has Charger for charging method. The available source does not mention charging method for Sonicare Prestige 9900 Rechargeable Toothbrush. A side-by-side comparison cannot be established for this attribute. [S5]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -271,17 +302,17 @@
       "question": "Which products have pressure sensing?",
       "verdict": "pass",
       "passed": true,
-      "detail": "all 19 expected products present with valid citations",
+      "detail": "all 20 expected products present with valid citations",
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has pressure sensing. [S1]\n\nOral-B iO Series 2 Clean & Protect Rechargeable Electric Toothbrush Starter Kit, Night Black has pressure sensing. [S2]\n\niO Series 2 Rechargeable Electric Toothbrush Starter Kit, Forest Green has pressure sensing. [S3]\n\nOral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink has pressure sensing. [S4]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has pressure sensing. [S5]\n\nOral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White has pressure sensing. [S6]\n\nOral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black has pressure sensing. [S7]\n\nOral-B iO Series 6 Electric Toothbrush, Black Lava has pressure sensing. [S8]\n\niO Series 7 Electric Toothbrush, Black Onyx has pressure sensing. [S9]\n\niO Series 8 Electric Toothbrush, Violet Ametrine has pressure sensing. [S10]\n\nOral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue has pressure sensing. [S11]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine has pressure sensing. [S12]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack has pressure sensing. [S13]\n\nSonicare 3100 Series Sonic electric toothbrush has pressure sensing. [S14]\n\nSonicare 4100 Series Sonic electric toothbrush has pressure sensing. [S15]\n\nSonicare 4100 Rechargeable toothbrush has pressure sensing. [S16]\n\nSonicare Series 5700 Rechargeable toothbrush has pressure sensing. [S17]\n\nSonicare Series 6500 Rechargeable toothbrush has pressure sensing. [S18]\n\nSonicare Prestige 9900 Rechargeable Toothbrush has pressure sensing. [S19]",
+      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has pressure sensing. [S1]\n\niO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White has pressure sensing. [S2]\n\nOral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink has pressure sensing. [S3]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has pressure sensing. [S4]\n\nOral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White has pressure sensing. [S5]\n\nOral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black has pressure sensing. [S6]\n\nOral-B iO Series 6 Electric Toothbrush, Black Lava has pressure sensing. [S7]\n\niO Series 7 Electric Toothbrush, Black Onyx has pressure sensing. [S8]\n\niO Series 8 Electric Toothbrush, Violet Ametrine has pressure sensing. [S9]\n\nOral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue has pressure sensing. [S10]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine has pressure sensing. [S11]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack has pressure sensing. [S12]\n\nSonicare 3100 Series Sonic electric toothbrush has pressure sensing. [S13]\n\nSonicare 4100 Rechargeable toothbrush has pressure sensing. [S14]\n\nSonicare Series 5700 Rechargeable toothbrush has pressure sensing. [S15]\n\nSonicare Series 6500 Rechargeable toothbrush has pressure sensing. [S16]\n\nSonicare Series 7100 Rechargeable toothbrush has pressure sensing. [S17]\n\nSonicare DiamondClean Smart 9300 Rechargeable Toothbrush has pressure sensing. [S18]\n\nSonicare DiamondClean 9000 Rechargeable toothbrush  has pressure sensing. [S19]\n\nSonicare Prestige 9900 Rechargeable Toothbrush has pressure sensing. [S20]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 19,
-        "trusted_segments": 19,
+        "total_segments": 20,
+        "trusted_segments": 20,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -294,17 +325,17 @@
       "question": "Which products support app connectivity?",
       "verdict": "pass",
       "passed": true,
-      "detail": "all 11 expected products present with valid citations",
+      "detail": "all 12 expected products present with valid citations",
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has app connectivity. [S1]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has app connectivity. [S2]\n\nOral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White has app connectivity. [S3]\n\nOral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black has app connectivity. [S4]\n\nOral-B iO Series 6 Electric Toothbrush, Black Lava has app connectivity. [S5]\n\niO Series 7 Electric Toothbrush, Black Onyx has app connectivity. [S6]\n\niO Series 8 Electric Toothbrush, Violet Ametrine has app connectivity. [S7]\n\nOral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue has app connectivity. [S8]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine has app connectivity. [S9]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack has app connectivity. [S10]\n\nSonicare For Kids Sonic electric toothbrush has app connectivity. [S11]",
+      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black has app connectivity. [S1]\n\nOral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink has app connectivity. [S2]\n\nOral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White has app connectivity. [S3]\n\nOral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black has app connectivity. [S4]\n\nOral-B iO Series 6 Electric Toothbrush, Black Lava has app connectivity. [S5]\n\niO Series 7 Electric Toothbrush, Black Onyx has app connectivity. [S6]\n\niO Series 8 Electric Toothbrush, Violet Ametrine has app connectivity. [S7]\n\nOral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue has app connectivity. [S8]\n\nOral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine has app connectivity. [S9]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack has app connectivity. [S10]\n\nSonicare DiamondClean Smart 9300 Rechargeable Toothbrush has app connectivity. [S11]\n\nSonicare DiamondClean 9000 Rechargeable toothbrush  has app connectivity. [S12]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 11,
-        "trusted_segments": 11,
+        "total_segments": 12,
+        "trusted_segments": 12,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -338,21 +369,72 @@
       "id": "status_not_mentioned_015",
       "category": "status_not_mentioned",
       "question": "What comes in the box for the 1100 Series Sonic electric toothbrush?",
-      "verdict": "pass",
-      "passed": true,
-      "detail": "explicit not_mentioned disclosure present",
+      "verdict": "fail",
+      "passed": false,
+      "detail": "expected not_mentioned disclosure; got: 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Oral-B iO10 Electric Toothbrush [S1]\\n\\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (1) Power2Go Charging Travel Case [S2]\\n\\n'; groundedness issues: [{'segment': 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Oral-B iO10 Electric Toothbrush', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question\"}, {'segment': 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (1) Power2Go Charging Travel Case', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question\"}, {'segment': 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Ultimate Clean Replacement Brush Heads', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question\"}, {'segment': 'iO Series 7 Electric Toothbrush, Black Onyx: (1) Magnetic Charger', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 7 Electric Toothbrush, Black Onyx', not among the expected products for this question\"}, {'segment': 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Black Lava Electric Toothbrush', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack', not among the expected products for this question\"}, {'segment': 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Gum & Sensitive Replacement Brush Heads', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question\"}, {'segment': 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Alabaster White Electric Toothbrush', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack', not among the expected products for this question\"}, {'segment': 'iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White: Charger', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White', not among the expected products for this question\"}, {'segment': 'iO Series 8 Electric Toothbrush, Violet Ametrine: (1) Magnetic Charger', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 8 Electric Toothbrush, Violet Ametrine', not among the expected products for this question\"}, {'segment': 'iO Series 7 Electric Toothbrush, Black Onyx: (1) Premium Travel Case', 'kind': 'unsupported_product_name', 'detail': \"text mentions 'iO Series 7 Electric Toothbrush, Black Onyx', not among the expected products for this question\"}]",
       "llm_called": false,
       "fallback_used": false,
-      "fallback_reason": null,
-      "answer_text": "The available source does not mention included items for 1100 Series Sonic electric toothbrush.",
+      "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
+      "answer_text": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Oral-B iO10 Electric Toothbrush [S1]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (1) Power2Go Charging Travel Case [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Ultimate Clean Replacement Brush Heads [S3]\n\niO Series 7 Electric Toothbrush, Black Onyx: (1) Magnetic Charger [S4]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Black Lava Electric Toothbrush [S5]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Gum & Sensitive Replacement Brush Heads [S6]\n\niO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Alabaster White Electric Toothbrush [S7]\n\niO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White: Charger [S8]\n\niO Series 8 Electric Toothbrush, Violet Ametrine: (1) Magnetic Charger [S9]\n\niO Series 7 Electric Toothbrush, Black Onyx: (1) Premium Travel Case [S10]",
       "usage": null,
       "latency_seconds": null,
-      "groundedness_issues": [],
+      "groundedness_issues": [
+        {
+          "segment": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: Oral-B iO10 Electric Toothbrush",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (1) Power2Go Charging Travel Case",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Ultimate Clean Replacement Brush Heads",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 7 Electric Toothbrush, Black Onyx: (1) Magnetic Charger",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 7 Electric Toothbrush, Black Onyx', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Black Lava Electric Toothbrush",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: (2) Gum & Sensitive Replacement Brush Heads",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack: (1) Oral-B iO Series 6 Alabaster White Electric Toothbrush",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Ultimate Clean Rechargeable Electric Toothbrush Twin Pack', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White: Charger",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 8 Electric Toothbrush, Violet Ametrine: (1) Magnetic Charger",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 8 Electric Toothbrush, Violet Ametrine', not among the expected products for this question"
+        },
+        {
+          "segment": "iO Series 7 Electric Toothbrush, Black Onyx: (1) Premium Travel Case",
+          "kind": "unsupported_product_name",
+          "detail": "text mentions 'iO Series 7 Electric Toothbrush, Black Onyx', not among the expected products for this question"
+        }
+      ],
       "citation_metrics": {
-        "total_segments": 1,
-        "trusted_segments": 1,
+        "total_segments": 10,
+        "trusted_segments": 10,
         "untrusted_segments": 0,
-        "presence_rate": 0.0,
+        "presence_rate": 1.0,
         "validity_rate_all": 1.0,
         "validity_rate_untrusted_only": 1.0
       }
@@ -390,13 +472,13 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": "Deterministic mode requested (--no-llm); returned deterministic grounded response.",
-      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges. [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: 1-Magnetic Charger [S3] [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The iO Series 10 rechargeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding you for coverage, brushing time, and brushing pressure for an effective clean every day. The iO Series 10 rechargeable electric toothbrush combines gentle micro-vibrations with a unique dentist-inspired round brush head for the feel of a professional purifying clean. [S5]",
+      "answer_text": "The manufacturer states: \"The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges.\" regarding battery life for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S1]\n\nThe manufacturer states: \"rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding\" regarding charging method for iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, but the source does not provide a normalized value. [S2]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The Oral-B iO Series 10 has a long-lasting lithium-ion battery designed for extended use between charges. [S3]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: rgeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding [S4]\n\niO Series 10 Rechargeable Electric Toothbrush, Cosmic Black: The iO Series 10 rechargeable electric toothbrush with the new advanced iO Sense\u2122 smart charger personalizes your brushing with real-time feedback, guiding you for coverage, brushing time, and brushing pressure for an effective clean every day. The iO Series 10 rechargeable electric toothbrush combines gentle micro-vibrations with a unique dentist-inspired round brush head for the feel of a professional purifying clean. [S5]",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
       "citation_metrics": {
-        "total_segments": 4,
-        "trusted_segments": 4,
+        "total_segments": 5,
+        "trusted_segments": 5,
         "untrusted_segments": 0,
         "presence_rate": 1.0,
         "validity_rate_all": 1.0,
@@ -436,7 +518,7 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": null,
-      "answer_text": "I found multiple Oral-B products matching this query (12 candidates: Oral-B iO Series 2 Clean & Protect Rechargeable Electric Toothbrush Starter Kit, Night Black, Oral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White, Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black, Oral-B iO Series 6 Electric Toothbrush, Black Lava, Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue, Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine, iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Forest Green, iO Series 7 Electric Toothbrush, Black Onyx, iO Series 8 Electric Toothbrush, Violet Ametrine). Please specify further (e.g. the exact series/model number).",
+      "answer_text": "I found multiple Oral-B products matching this query (11 candidates: Oral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White, Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black, Oral-B iO Series 6 Electric Toothbrush, Black Lava, Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue, Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine, iO Series 10 Rechargeable Electric Toothbrush, Cosmic Black, iO Series 2 Rechargeable Electric Toothbrush Starter Kit, Pure White, iO Series 7 Electric Toothbrush, Black Onyx, iO Series 8 Electric Toothbrush, Violet Ametrine). Please specify further (e.g. the exact series/model number).",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -532,7 +614,7 @@
       "llm_called": false,
       "fallback_used": false,
       "fallback_reason": null,
-      "answer_text": "I found multiple Oral-B products matching this query (8 candidates: Oral-B iO Series 2 Clean & Protect Rechargeable Electric Toothbrush Starter Kit, Night Black, Oral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White, Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black, Oral-B iO Series 6 Electric Toothbrush, Black Lava, Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue, Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine). Please specify further (e.g. the exact series/model number).",
+      "answer_text": "I found multiple Oral-B products matching this query (7 candidates: Oral-B iO Series 3 Clean & Protect Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Clean & Gum Care Rechargeable Electric Toothbrush, Azalea Pink, Oral-B iO Series 4 Rechargeable Electric Toothbrush, Matte White, Oral-B iO Series 5 Customizable Clean Rechargeable Electric Toothbrush, Matte Black, Oral-B iO Series 6 Electric Toothbrush, Black Lava, Oral-B iO Series 9 Genius Rechargeable Electric Toothbrush, Sapphire Blue, Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine). Please specify further (e.g. the exact series/model number).",
       "usage": null,
       "latency_seconds": null,
       "groundedness_issues": [],
@@ -559,52 +641,52 @@
     "total_cases": 26,
     "exercised_cases": 25,
     "not_exercised_cases": 1,
-    "passed_cases": 25,
-    "failed_cases": 0,
-    "pass_rate_over_exercised": 1.0,
+    "passed_cases": 22,
+    "failed_cases": 3,
+    "pass_rate_over_exercised": 0.88,
     "safety_pass_rate": 1.0,
     "safety_not_exercised": [
       "injection_evidence_026"
     ],
     "exhaustive_completeness": 1.0,
-    "unsupported_claim_count": 0,
-    "unsupported_claim_rate": 0.0
+    "unsupported_claim_count": 16,
+    "unsupported_claim_rate": 0.6153846153846154
   },
   "citation_metrics": {
-    "total_segments": 70,
-    "trusted_segments": 70,
+    "total_segments": 89,
+    "trusted_segments": 89,
     "untrusted_segments": 0,
-    "presence_rate": 0.9,
+    "presence_rate": 0.9213483146067416,
     "validity_rate_all": 1.0,
     "validity_rate_untrusted_only": 1.0
   },
   "retrieval_metrics": {
     "ablation": {
       "status": "ok",
-      "total_cases": 228,
+      "total_cases": 214,
       "ablation": {
         "bm25_only": {
-          "5": 0.6447368421052632,
-          "10": 0.7105263157894737
+          "5": 0.5420560747663551,
+          "10": 0.5887850467289719
         },
         "semantic_only": {
-          "5": 0.7456140350877193,
-          "10": 0.8508771929824561
+          "5": 0.6214953271028038,
+          "10": 0.705607476635514
         },
         "hybrid": {
-          "5": 0.793859649122807,
-          "10": 0.8903508771929824
+          "5": 0.7383177570093458,
+          "10": 0.7897196261682243
         },
         "hybrid_reranked": {
-          "5": 0.9342105263157895,
-          "10": 0.9956140350877193
+          "5": 0.9065420560747663,
+          "10": 0.9813084112149533
         }
       }
     },
     "behavioral_checks": {
       "exhaustive_pressure_sensing": {
         "passed": true,
-        "detail": "expected 19 products with pressure_sensing=True, got 19; every match has evidence: True"
+        "detail": "expected 20 products with pressure_sensing=True, got 20; every match has evidence: True"
       },
       "not_in_corpus_refusal": {
         "passed": true,
@@ -612,7 +694,7 @@
       },
       "ambiguous_clarification": {
         "passed": true,
-        "detail": "kind=ambiguous, candidates=12"
+        "detail": "kind=ambiguous, candidates=11"
       },
       "user_prompt_injection": {
         "passed": true,
@@ -626,7 +708,7 @@
   },
   "status_coverage": {
     "stated": {
-      "count": 486,
+      "count": 996,
       "examples": [
         {
           "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
@@ -642,37 +724,37 @@
         },
         {
           "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
-          "attribute": "bluetooth_connectivity"
+          "attribute": "battery_type"
         },
         {
           "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
-          "attribute": "charging_method"
+          "attribute": "bluetooth_connectivity"
         }
       ],
       "has_real_example": true
     },
     "not_mentioned": {
-      "count": 130,
+      "count": 313,
       "examples": [
         {
           "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
-          "attribute": "modes"
+          "attribute": "brush_movements_per_min"
         },
         {
-          "product_id": "oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit",
-          "attribute": "app_connectivity"
+          "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+          "attribute": "charge_time_hours"
         },
         {
-          "product_id": "oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit",
-          "attribute": "bluetooth_connectivity"
+          "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+          "attribute": "claims_with_disclaimers"
         },
         {
-          "product_id": "oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit",
-          "attribute": "modes"
+          "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+          "attribute": "disclaimers"
         },
         {
-          "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
-          "attribute": "app_connectivity"
+          "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+          "attribute": "gum_health_claim"
         }
       ],
       "has_real_example": true
@@ -688,27 +770,27 @@
       "has_real_example": false
     },
     "stated_with_null_value": {
-      "count": 8,
+      "count": 15,
       "examples": [
         {
           "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
           "attribute": "battery_life_days"
         },
         {
-          "product_id": "oralb_io-series-4-rechargeable-electric-toothbrush",
-          "attribute": "battery_life_days"
+          "product_id": "oralb_io-series-10-rechargeable-electric-toothbrush",
+          "attribute": "charging_method"
         },
         {
-          "product_id": "oralb_io-series-5-customizable-clean-rechargeable-electric-toothbrush",
-          "attribute": "battery_life_days"
+          "product_id": "oralb_io-series-2-rechargeable-electric-toothbrush-starter-kit",
+          "attribute": "charging_method"
         },
         {
-          "product_id": "oralb_io-series-6-electric-toothbrush",
-          "attribute": "battery_life_days"
+          "product_id": "oralb_io-series-3-clean-protect-rechargeable-electric-toothbrush",
+          "attribute": "charging_method"
         },
         {
-          "product_id": "oralb_io-series-9-genius-rechargeable-electric-toothbrush",
-          "attribute": "battery_life_days"
+          "product_id": "oralb_io-series-4-clean-gum-care-rechargeable-electric-toothbrush",
+          "attribute": "charging_method"
         }
       ],
       "has_real_example": true
@@ -725,8 +807,8 @@
     {
       "name": "unsupported_claim_rate",
       "threshold": 0.0,
-      "actual": 0.0,
-      "passed": true,
+      "actual": 0.6153846153846154,
+      "passed": false,
       "comparison": "max"
     },
     {
@@ -737,5 +819,5 @@
       "comparison": "min"
     }
   ],
-  "quality_gates_all_passed": true
+  "quality_gates_all_passed": false
 }

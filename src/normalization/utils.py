@@ -721,7 +721,12 @@ def extract_charging_method(sections, product_id, record, store, warnings) -> tu
 
     mention_matches = _find_matches(sections, CHARGING_MENTION, product_name)
     if mention_matches:
-        m = mention_matches[0]
+        # Prefer a mention of the charging hardware ("charger", "charging
+        # station") over a bare "charge" ("1 charge lasts 4 weeks").
+        m = next(
+            (x for x in mention_matches if re.search(r"charger|charging", x["raw_value"], re.I)),
+            mention_matches[0],
+        )
         warnings.append(
             NormalizationWarning(
                 product_id=product_id, code="unnormalizable_value", attribute="charging_method",
@@ -757,7 +762,9 @@ def extract_charging_method(sections, product_id, record, store, warnings) -> tu
 
 # "brush" (not just "brushing") must be accepted: real Philips copy says
 # "2 brush mode, 3 intensities" / "3 brush modes, 3 intensities".
-MODE_COUNT_PATTERN = re.compile(r"\b(\d+)\s+(?:smart\s+)?(?:brushing\s+|brush\s+|cleaning\s+)?modes?\b", re.I)
+MODE_COUNT_PATTERN = re.compile(
+    r"\b(\d+)\s+(?:smart\s+)?(?:brushing\s+|brush\s+|cleaning\s+settings/brushing\s+|cleaning\s+)?modes?\b", re.I
+)
 # Intensity settings are a DIFFERENT concept from brushing modes and must
 # never be converted into mode_count (e.g. Philips's "2 intensity
 # settings for a more powerful or gentle clean" is not "2 modes") -- kept
@@ -889,6 +896,16 @@ def extract_included_items(sections, product_id, record, store, warnings) -> Att
 
 CLAIM_MARKER = re.compile(r"up to \d+%?x?|\d+%|(?<![\w@-])\d+x\b|\d+ ?times (?:more|better|less)", re.I)
 _SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
+# Periods that end an abbreviation, not a sentence ("...hard-to-reach areas
+# vs. a regular manual toothbrush"). Protected before splitting, restored
+# after, so every piece stays a verbatim substring of the source.
+_ABBREVIATION_DOT = re.compile(r"\b(?:vs|approx|dr|mr|mrs|ms|e\.g|i\.e)\.(?=\s)", re.I)
+_DOT_PLACEHOLDER = "\u0001"
+
+
+def split_sentences(text: str) -> list[str]:
+    protected = _ABBREVIATION_DOT.sub(lambda m: m.group(0)[:-1] + _DOT_PLACEHOLDER, text)
+    return [piece.replace(_DOT_PLACEHOLDER, ".") for piece in _SENTENCE_SPLIT.split(protected)]
 # Image asset URLs/filenames (e.g. ".../Base-2x.png") leak into visible
 # text alongside widget metadata on some pages; a "2x" retina-image
 # density suffix must never be read as a "2x better" marketing claim.
@@ -924,7 +941,7 @@ def extract_claims(sections, product_id, record, store, warnings, max_claims: in
     candidates: list[tuple[str, dict, int, str]] = []
     for idx, section in sections:
         combined = combined_section_text(section)
-        for sentence in _SENTENCE_SPLIT.split(section["text"]):
+        for sentence in split_sentences(section["text"]):
             sentence = sentence.strip()
             sentence = _GLUED_PREFIX_RE.sub("", sentence).strip()
             if not sentence:
@@ -952,6 +969,15 @@ def extract_claims(sections, product_id, record, store, warnings, max_claims: in
                 break
             if existing_sentence.endswith(sentence) and len(sentence) < len(existing_sentence):
                 accepted[i] = cand  # this one is cleaner/shorter -- replace
+                skip = True
+                break
+            # A candidate that is only the first part of an already-found
+            # sentence (a sentence broken across inline tags) is a fragment.
+            if existing_sentence.startswith(sentence) and len(sentence) < len(existing_sentence):
+                skip = True
+                break
+            if sentence.startswith(existing_sentence) and len(existing_sentence) < len(sentence):
+                accepted[i] = cand  # the earlier one was the fragment -- replace
                 skip = True
                 break
             if sentence.endswith(existing_sentence) and len(existing_sentence) <= len(sentence):

@@ -63,10 +63,60 @@ CSV_COLUMNS = [
     "description",
     "claims",
     "specifications",
+    "original_price",
+    "discount_amount",
+    "discount_pct",
+    "price_after_discount",
+    "promotion_text",
+    "color_count",
+    "colors",
+    "rating_avg",
+    "rating_count",
+    "mode_details",
+    "intensity_levels",
+    "warranty_years",
+    "battery_type",
+    "charge_time_hours",
+    "brush_movements_per_min",
+    "display_type",
+    "replacement_reminder",
+    "coverage_tracking",
+    "travel_case_included",
+    "brush_heads_included",
+    "money_back_guarantee_days",
+    "plaque_removal_claim",
+    "gum_health_claim",
+    "dimensions",
+    "weight",
+    "disclaimers",
+    "claims_with_disclaimers",
+    "availability",
+    "listed_price_hidden",
+    "pressure_sensing_details",
+    "app_connectivity_details",
+    "bluetooth_details",
+    "battery_details",
+    "charging_details",
+    "coverage_tracking_details",
+    "brushing_zones",
+    "zone_interval_seconds",
+    "brush_head_replacement_interval",
+    "cleaning_technology",
+    "brush_head_compatibility",
+    "feel_and_noise",
+    "price_positioning",
+    "noise_db",
+    "intensity_details",
+    "intensity_count",
+    "battery_indicator",
     "variants",
 ]
 
-JSON_ENCODED_COLUMNS = {"modes", "included_items", "claims", "specifications", "variants"}
+JSON_ENCODED_COLUMNS = {
+    "modes", "included_items", "claims", "specifications", "variants",
+    "colors", "mode_details", "intensity_levels", "disclaimers", "claims_with_disclaimers",
+    "pressure_sensing_details", "app_connectivity_details", "bluetooth_details", "battery_details", "charging_details", "coverage_tracking_details", "intensity_details",
+}
 
 logger = logging.getLogger("normalization")
 
@@ -91,7 +141,9 @@ def _csv_cell(column: str, value: Any) -> str:
 
 def write_csv(products: list[NormalizedProduct], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as f:
+    # utf-8-sig: the BOM makes Excel decode the file as UTF-8 (otherwise
+    # curly apostrophes etc. show up as "â€™"); other readers ignore it.
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.writer(f)
         writer.writerow(CSV_COLUMNS)
         for p in products:

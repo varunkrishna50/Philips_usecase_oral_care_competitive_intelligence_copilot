@@ -27,7 +27,11 @@ IDENTITY_COLUMNS = {
     "product_id", "brand", "product_name", "product_url",
     "discovered_url", "source_listing_url", "retrieved_at",
 }
-JSON_ENCODED_COLUMNS = {"modes", "included_items", "claims", "specifications"}
+JSON_ENCODED_COLUMNS = {
+    "modes", "included_items", "claims", "specifications",
+    "colors", "mode_details", "intensity_levels", "disclaimers", "claims_with_disclaimers",
+    "pressure_sensing_details", "app_connectivity_details", "bluetooth_details", "battery_details", "charging_details", "coverage_tracking_details", "intensity_details",
+}
 
 
 def load_product_corpus(path=COMPARISON_TABLE_PARQUET) -> list[ProductRecord]:

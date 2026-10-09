@@ -105,7 +105,10 @@ class TestAttributeMapping:
         assert "included_items" in qu.detect_attributes("What comes in the box?")
 
     def test_no_attribute_detected_for_unrelated_query(self):
-        assert qu.detect_attributes("What color is the Series 10?") == []
+        assert qu.detect_attributes("Who founded the company?") == []
+
+    def test_color_query_maps_to_colors(self):
+        assert qu.detect_attributes("What color is the Series 10?") == ["colors"]
 
     def test_only_real_step2_attributes_are_ever_returned(self):
         from src.normalization.models import ATTRIBUTE_FIELDS

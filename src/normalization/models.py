@@ -95,6 +95,56 @@ class NormalizedProduct(BaseModel):
     claims: AttributeValue = Field(default_factory=not_mentioned)
     specifications: AttributeValue = Field(default_factory=not_mentioned)
 
+    # Detail attributes (see detail_attributes.py): pricing detail, colors,
+    # ratings, mode descriptions, warranty, battery/charging/speed specs,
+    # extra smart features, included hardware, headline claims.
+    original_price: AttributeValue = Field(default_factory=not_mentioned)
+    discount_amount: AttributeValue = Field(default_factory=not_mentioned)
+    discount_pct: AttributeValue = Field(default_factory=not_mentioned)
+    price_after_discount: AttributeValue = Field(default_factory=not_mentioned)
+    promotion_text: AttributeValue = Field(default_factory=not_mentioned)
+    color_count: AttributeValue = Field(default_factory=not_mentioned)
+    colors: AttributeValue = Field(default_factory=not_mentioned)
+    rating_avg: AttributeValue = Field(default_factory=not_mentioned)
+    rating_count: AttributeValue = Field(default_factory=not_mentioned)
+    mode_details: AttributeValue = Field(default_factory=not_mentioned)
+    intensity_levels: AttributeValue = Field(default_factory=not_mentioned)
+    warranty_years: AttributeValue = Field(default_factory=not_mentioned)
+    battery_type: AttributeValue = Field(default_factory=not_mentioned)
+    charge_time_hours: AttributeValue = Field(default_factory=not_mentioned)
+    brush_movements_per_min: AttributeValue = Field(default_factory=not_mentioned)
+    display_type: AttributeValue = Field(default_factory=not_mentioned)
+    replacement_reminder: AttributeValue = Field(default_factory=not_mentioned)
+    coverage_tracking: AttributeValue = Field(default_factory=not_mentioned)
+    travel_case_included: AttributeValue = Field(default_factory=not_mentioned)
+    brush_heads_included: AttributeValue = Field(default_factory=not_mentioned)
+    money_back_guarantee_days: AttributeValue = Field(default_factory=not_mentioned)
+    plaque_removal_claim: AttributeValue = Field(default_factory=not_mentioned)
+    gum_health_claim: AttributeValue = Field(default_factory=not_mentioned)
+    dimensions: AttributeValue = Field(default_factory=not_mentioned)
+    weight: AttributeValue = Field(default_factory=not_mentioned)
+    disclaimers: AttributeValue = Field(default_factory=not_mentioned)
+    claims_with_disclaimers: AttributeValue = Field(default_factory=not_mentioned)
+    availability: AttributeValue = Field(default_factory=not_mentioned)
+    listed_price_hidden: AttributeValue = Field(default_factory=not_mentioned)
+    pressure_sensing_details: AttributeValue = Field(default_factory=not_mentioned)
+    app_connectivity_details: AttributeValue = Field(default_factory=not_mentioned)
+    bluetooth_details: AttributeValue = Field(default_factory=not_mentioned)
+    battery_details: AttributeValue = Field(default_factory=not_mentioned)
+    charging_details: AttributeValue = Field(default_factory=not_mentioned)
+    coverage_tracking_details: AttributeValue = Field(default_factory=not_mentioned)
+    brushing_zones: AttributeValue = Field(default_factory=not_mentioned)
+    zone_interval_seconds: AttributeValue = Field(default_factory=not_mentioned)
+    brush_head_replacement_interval: AttributeValue = Field(default_factory=not_mentioned)
+    cleaning_technology: AttributeValue = Field(default_factory=not_mentioned)
+    brush_head_compatibility: AttributeValue = Field(default_factory=not_mentioned)
+    feel_and_noise: AttributeValue = Field(default_factory=not_mentioned)
+    price_positioning: AttributeValue = Field(default_factory=not_mentioned)
+    noise_db: AttributeValue = Field(default_factory=not_mentioned)
+    intensity_details: AttributeValue = Field(default_factory=not_mentioned)
+    intensity_count: AttributeValue = Field(default_factory=not_mentioned)
+    battery_indicator: AttributeValue = Field(default_factory=not_mentioned)
+
     variants: list[VariantOut] = Field(default_factory=list)
 
     def to_flat_dict(self) -> dict[str, Any]:
@@ -142,4 +192,50 @@ ATTRIBUTE_FIELDS = [
     "description",
     "claims",
     "specifications",
+    "original_price",
+    "discount_amount",
+    "discount_pct",
+    "price_after_discount",
+    "promotion_text",
+    "color_count",
+    "colors",
+    "rating_avg",
+    "rating_count",
+    "mode_details",
+    "intensity_levels",
+    "warranty_years",
+    "battery_type",
+    "charge_time_hours",
+    "brush_movements_per_min",
+    "display_type",
+    "replacement_reminder",
+    "coverage_tracking",
+    "travel_case_included",
+    "brush_heads_included",
+    "money_back_guarantee_days",
+    "plaque_removal_claim",
+    "gum_health_claim",
+    "dimensions",
+    "weight",
+    "disclaimers",
+    "claims_with_disclaimers",
+    "availability",
+    "listed_price_hidden",
+    "pressure_sensing_details",
+    "app_connectivity_details",
+    "bluetooth_details",
+    "battery_details",
+    "charging_details",
+    "coverage_tracking_details",
+    "brushing_zones",
+    "zone_interval_seconds",
+    "brush_head_replacement_interval",
+    "cleaning_technology",
+    "brush_head_compatibility",
+    "feel_and_noise",
+    "price_positioning",
+    "noise_db",
+    "intensity_details",
+    "intensity_count",
+    "battery_indicator",
 ]

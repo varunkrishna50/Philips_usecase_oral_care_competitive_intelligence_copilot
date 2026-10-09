@@ -33,7 +33,11 @@ ROOT = Path(__file__).resolve().parents[2]
 COMPARISON_TABLE_PARQUET = ROOT / "data" / "processed" / "comparison_table.parquet"
 EVIDENCE_JSON = ROOT / "data" / "processed" / "evidence.json"
 
-JSON_ENCODED_COLUMNS = {"modes", "included_items", "claims", "specifications"}
+JSON_ENCODED_COLUMNS = {
+    "modes", "included_items", "claims", "specifications",
+    "colors", "mode_details", "intensity_levels", "disclaimers", "claims_with_disclaimers",
+    "pressure_sensing_details", "app_connectivity_details", "bluetooth_details", "battery_details", "charging_details", "coverage_tracking_details", "intensity_details",
+}
 
 ALL_STATUSES = ("stated", "not_mentioned", "stated_absent", "ambiguous")
 

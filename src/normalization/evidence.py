@@ -25,6 +25,16 @@ class EvidenceIntegrityError(ValueError):
     text is not a verbatim substring of its claimed source."""
 
 
+def structured_source_text(raw_text: str, html_text: str, extra_text: str = "") -> str:
+    """Everything structured-data evidence may be quoted from: the visible
+    text, the raw HTML, the HTML with one level of JSON string escaping
+    removed (Philips embeds its product JSON as backslash-escaped JS
+    strings, so quoting it unescaped keeps evidence readable), and any
+    text captured from a rendered widget (extra_text)."""
+    unescaped = html_text.replace('\\"', '"')
+    return "\n".join((raw_text, html_text, unescaped, extra_text))
+
+
 class EvidenceStore:
     def __init__(self) -> None:
         self._items: dict[str, EvidenceRef] = {}
@@ -111,6 +121,7 @@ class EvidenceStore:
         source_file: str,
         raw_text: str,
         html_text: str,
+        extra_text: str = "",
     ) -> str:
         return self.add(
             product_id=product_id,
@@ -123,8 +134,22 @@ class EvidenceStore:
             source_file=source_file,
             source_section=STRUCTURED_DATA_SENTINEL,
             source_section_index=None,
-            source_text_for_check=raw_text + "\n" + html_text,
+            source_text_for_check=structured_source_text(raw_text, html_text, extra_text),
         )
+
+    def discard(self, evidence_id: str) -> None:
+        """Remove an evidence record that no attribute will reference any
+        more (e.g. a value superseded by a better-sourced one), so it never
+        reaches evidence.json / the retrieval index. If it was the most
+        recently issued id for its product+attribute the counter is rolled
+        back so ids stay contiguous."""
+        ev = self._items.pop(evidence_id, None)
+        if ev is None:
+            return
+        key = (ev.product_id, ev.attribute)
+        n = int(evidence_id.rsplit(":", 1)[1])
+        if self._counters.get(key) == n + 1:
+            self._counters[key] = n
 
     def get(self, evidence_id: str) -> Optional[EvidenceRef]:
         return self._items.get(evidence_id)
@@ -151,7 +176,9 @@ def resolve_source_text(
 
     if source_section == STRUCTURED_DATA_SENTINEL:
         html_text = html_path.read_text(encoding="utf-8") if html_path.exists() else ""
-        return record["raw_text"] + "\n" + html_text
+        return structured_source_text(
+            record["raw_text"], html_text, record.get("structured_data", {}).get("rating_widget_text", "")
+        )
 
     sections = record.get("sections", [])
     if source_section_index is None or not (0 <= source_section_index < len(sections)):

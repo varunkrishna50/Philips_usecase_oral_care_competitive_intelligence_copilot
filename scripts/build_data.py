@@ -114,6 +114,36 @@ def print_summary(manifest: dict) -> None:
     print(f"Full discovery report (discovered/excluded/scraped/failed URLs): {DATA_DIR / 'manifest.json'}")
 
 
+def _drop_duplicates(records: list[ProductRecord], brand: str) -> list[ProductRecord]:
+    """One record per product: two discovered URLs can resolve to the same
+    page (e.g. a renamed model whose old URL now redirects), so keep the
+    first record per final URL and per output file."""
+    kept: list[ProductRecord] = []
+    seen_urls: set[str] = set()
+    seen_files: set[str] = set()
+    for record in records:
+        url_key = record.product_url.rstrip("/").lower()
+        file_key = Path(record.raw_html_path).stem
+        if url_key in seen_urls or file_key in seen_files:
+            logger.warning("%s: dropping duplicate record %s (already have %s)", brand, record.discovered_url, record.product_url)
+            continue
+        seen_urls.add(url_key)
+        seen_files.add(file_key)
+        kept.append(record)
+    return kept
+
+
+def _remove_stale_files(records: list[ProductRecord], raw_dir: Path, html_dir: Path, brand_key: str) -> None:
+    """After a --refresh run, delete saved records/snapshots that no longer
+    correspond to a current product (renamed, merged or removed pages)."""
+    keep = {Path(r.raw_html_path).stem for r in records}
+    for path in list(raw_dir.glob(f"{brand_key}_*.json")) + list(html_dir.glob(f"{brand_key}_*.html")):
+        if path.stem.startswith("_listing_") or path.stem in keep:
+            continue
+        logger.warning("Removing stale %s file: %s", brand_key, path.name)
+        path.unlink()
+
+
 def run_philips(session: requests.Session, rate_limiter: RateLimiter, refresh: bool, target_count: int):
     logger.info("=== Discovering Philips products ===")
     discovered, excluded = philips.discover(session, rate_limiter, PHILIPS_HTML_DIR, refresh, target_count=target_count)
@@ -130,6 +160,7 @@ def run_philips(session: requests.Session, rate_limiter: RateLimiter, refresh: b
             assert failure is not None
             failed.append(failure)
             logger.warning("Philips FAILED: %s (%s)", failure.url, failure.reason)
+    records = _drop_duplicates(records, "Philips")
     return discovered, records, failed, excluded
 
 
@@ -150,6 +181,7 @@ def run_oralb(session: requests.Session, rate_limiter: RateLimiter, refresh: boo
             assert failure is not None
             failed.append(failure)
             logger.warning("Oral-B FAILED: %s (%s)", failure.url, failure.reason)
+    records = _drop_duplicates(records, "Oral-B")
     return discovered, records, failed, excluded
 
 
@@ -174,6 +206,14 @@ def main() -> int:
     oralb_discovered, oralb_records, oralb_failed, oralb_excluded = run_oralb(
         session, rate_limiter, args.refresh, args.target_per_brand
     )
+
+    if args.refresh:
+        for records, raw_dir, html_dir, brand_key in (
+            (philips_records, PHILIPS_RAW_DIR, PHILIPS_HTML_DIR, "philips"),
+            (oralb_records, ORALB_RAW_DIR, ORALB_HTML_DIR, "oralb"),
+        ):
+            if len(records) >= 8:  # never prune on the back of a mostly-failed run
+                _remove_stale_files(records, raw_dir, html_dir, brand_key)
 
     manifest = build_manifest(
         philips_discovered, philips_records, philips_failed, philips_excluded,

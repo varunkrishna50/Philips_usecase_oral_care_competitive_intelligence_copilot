@@ -1,0 +1,39 @@
+Feedback:
+1) oralb_io-series-2-clean-protect-rechargeable-electric-toothbrush-starter-kit
+
+Issues:
+1) Product Name is wrong,  and even url is wrong (when I use that url I am redirected to another url without the word clean in it. this is the url I reach:
+https://oralb.com/en-us/products/electric-toothbrushes/oral-b-io-series-2-rechargeable-electric-toothbrush-starter-kit-night-black/
+
+2)  Price is 64.99 usd and not 44.99
+
+4) modes and mode details are blank ,but the names are mentioned in the url
+
+5) timer description could be even more elaborate
+
+6) charging method is not mentioned as magnetic anywhere, confirm once by inspecting the page
+
+7) included items are incorrect and repeating, inspect the page to confirm
+
+8) the description is not able to handle special character. For eg:
+original desc: The iO Series 2 removes 100% more plaque even in hard-to-reach areas vs. a regular manual toothbrush with Oral-B’s iO technology: tough on plaque, gentle on gums.
+
+your output desc: The iO Series 2 removes 100% more plaque even in hard-to-reach areas vs. a regular manual toothbrush with Oral-Bâ€™s iO technology: tough on plaque, gentle on gums.
+
+see the difference
+
+9) claims is incomplete. so complete the sentence 
+your output : ["The iO Series 2 removes 100% more plaque even in hard-to-reach areas vs."]
+expected: The iO Series 2 removes 100% more plaque even in hard-to-reach areas vs. a regular manual toothbrush with Oral-B’s iO technology: tough on plaque, gentle on gums.
+
+10) in specifications, I am not sure where you are getting those terms such as Smart, because in the website that term is not used at all
+
+11) no discount in this product and neither promotion text
+
+
+12) for display time can this be considered? Simple, beginner friendly controls and a clear on handle display — easy to use compared with more complex models.
+
+13) travel case included is true acc to your output but it is not mentioned in the url
+
+14) brush heads included is blank acc to your output but in the page it is mentioned in the items included part (check and confirm)
+

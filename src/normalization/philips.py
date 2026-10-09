@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from . import utils
+from .detail_attributes import apply_detail_attributes
 from .evidence import EvidenceStore
 from .filters import usable_sections
 from .models import NormalizationWarning, NormalizedProduct, VariantOut
@@ -71,6 +72,19 @@ def normalize_product(record: dict, store: EvidenceStore, warnings: list[Normali
     claims_av = utils.extract_claims(sections, product_id, record, store, warnings)
     specifications_av = extract_specifications(sections, product_id, record, store, warnings)
 
+    attrs = apply_detail_attributes(
+        dict(
+            price=price_av, currency=currency_av, price_type=price_type_av,
+            mode_count=mode_count_av, modes=modes_av,
+            pressure_sensing=pressure_av, app_connectivity=app_av, bluetooth_connectivity=bluetooth_av,
+            timer=timer_av, timer_description=timer_desc_av,
+            battery_life_days=battery_days_av, battery_life_raw=battery_raw_av,
+            charging_method=charging_av, charging_method_raw=charging_raw_av,
+            included_items=included_items_av, description=description_av,
+            claims=claims_av, specifications=specifications_av,
+        ),
+        record, product_id, store, warnings,
+    )
     return NormalizedProduct(
         product_id=product_id,
         brand=record["brand"],
@@ -81,23 +95,6 @@ def normalize_product(record: dict, store: EvidenceStore, warnings: list[Normali
         retrieved_at=record["retrieved_at"],
         raw_html_path=record["raw_html_path"],
         content_hash=record["content_hash"],
-        price=price_av,
-        currency=currency_av,
-        price_type=price_type_av,
-        mode_count=mode_count_av,
-        modes=modes_av,
-        pressure_sensing=pressure_av,
-        app_connectivity=app_av,
-        bluetooth_connectivity=bluetooth_av,
-        timer=timer_av,
-        timer_description=timer_desc_av,
-        battery_life_days=battery_days_av,
-        battery_life_raw=battery_raw_av,
-        charging_method=charging_av,
-        charging_method_raw=charging_raw_av,
-        included_items=included_items_av,
-        description=description_av,
-        claims=claims_av,
-        specifications=specifications_av,
         variants=[VariantOut(**v) for v in record.get("variants", [])],
+        **attrs,
     )
