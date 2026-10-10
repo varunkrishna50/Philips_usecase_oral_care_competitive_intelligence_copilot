@@ -108,6 +108,17 @@ class TestAttributeMapping:
     def test_whats_in_the_box_maps_to_included_items(self):
         assert "included_items" in qu.detect_attributes("What comes in the box?")
 
+    def test_replacement_heads_in_box_does_not_mean_replacement_interval(self):
+        attrs = qu.detect_attributes(
+            "What comes in the box with the Oral-B iO Series 9, and how many replacement brush heads are included?"
+        )
+        assert "included_items" in attrs
+        assert "brush_head_replacement_interval" not in attrs
+
+    def test_explicit_replacement_interval_question_maps_to_interval(self):
+        attrs = qu.detect_attributes("How often should I replace the brush heads?")
+        assert "brush_head_replacement_interval" in attrs
+
     def test_no_attribute_detected_for_unrelated_query(self):
         assert qu.detect_attributes("Who founded the company?") == []
 
@@ -133,6 +144,65 @@ class TestIntentClassification:
     def test_plain_question_is_normal(self):
         m = qu.detect_products("How many modes does iO Series 10 have?", SYNTHETIC_PRODUCTS)
         assert qu.classify_intent("How many modes does iO Series 10 have?", m) == "normal"
+
+
+class _FakeLLMClient:
+    """Stands in for OpenAIStructuredClient so classify_query()'s LLM
+    path can be exercised deterministically, without a real API key --
+    same pattern as tests/test_rag_generation.py's FakeLLMClient."""
+
+    def __init__(self, response=None, exc=None):
+        self._response = response
+        self._exc = exc
+        self.calls = []
+
+    def generate_json(self, system_prompt, user_prompt):
+        self.calls.append((system_prompt, user_prompt))
+        if self._exc:
+            raise self._exc
+        return self._response
+
+
+class TestClassifyQueryLLM:
+    """classify_query() (LLM-first attribute+intent classification): the
+    generalization this replaces regex enumeration with -- see the
+    "replacement brush heads" vs "replacement interval" bug this exists
+    to fix (regex had to be told every phrasing; the LLM classifies
+    from meaning)."""
+
+    def test_llm_response_is_used_when_available(self):
+        client = _FakeLLMClient(response={"attributes": ["brush_heads_included"], "intent": "normal"})
+        attrs, intent = qu.classify_query("how many replacement heads come in the box?", client)
+        assert attrs == ["brush_heads_included"]
+        assert intent == "normal"
+        assert len(client.calls) == 1
+
+    def test_hallucinated_attribute_names_are_dropped(self):
+        client = _FakeLLMClient(response={"attributes": ["brush_heads_included", "not_a_real_attribute"], "intent": "normal"})
+        attrs, _intent = qu.classify_query("how many heads come in the box?", client)
+        assert attrs == ["brush_heads_included"]
+
+    def test_invalid_intent_falls_back_to_normal(self):
+        client = _FakeLLMClient(response={"attributes": [], "intent": "not_a_real_intent"})
+        _attrs, intent = qu.classify_query("some question", client)
+        assert intent == "normal"
+
+    def test_llm_unavailable_falls_back_to_deterministic_regex(self):
+        from src.rag.llm_provider import LLMUnavailable
+
+        client = _FakeLLMClient(exc=LLMUnavailable("no key"))
+        attrs, intent = qu.classify_query("How often should I replace the brush heads?", client)
+        assert "brush_head_replacement_interval" in attrs
+        assert intent == "normal"
+
+    def test_detect_attributes_and_classify_intent_use_classify_query_under_the_hood(self):
+        # No llm_client is injectable through these two public wrappers (they each build their
+        # own default client); with no OPENAI_API_KEY in the test environment (tests/conftest.py's
+        # autouse _no_real_llm_key fixture) that default client is immediately unavailable, so both
+        # wrappers land on the exact same deterministic fallback this test pins.
+        assert "brush_head_replacement_interval" in qu.detect_attributes("How often should I replace the brush heads?")
+        m = qu.detect_products("Which products have pressure sensing?", SYNTHETIC_PRODUCTS)
+        assert qu.classify_intent("Which products have pressure sensing?", m) == "exhaustive"
 
 
 # ---------------------------------------------------------------------------

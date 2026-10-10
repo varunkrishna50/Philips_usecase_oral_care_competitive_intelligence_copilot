@@ -36,9 +36,9 @@ covers everything needed to set the project up and run it.
 - macOS, Linux, or Windows (the data acquisition and index builds have been
   exercised primarily on macOS and Linux)
 - No GPU required; embeddings run on CPU via `sentence-transformers`
-- An OpenAI API key is **optional**. Without one, the application and the
-  evaluation harness both run fully offline against a deterministic
-  fallback — see [Usage notes](#usage-notes-and-known-limitations)
+- An OpenAI API key is optional. Without one, the application and the
+  evaluation harness run fully offline against a deterministic fallback —
+  see [Usage notes](#usage-notes-and-known-limitations)
 
 ## Environment setup
 
@@ -57,17 +57,13 @@ install a browser once:
 playwright install chromium
 ```
 
-### Configuring an API key (optional)
+### Configuring an API key
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` and set `OPENAI_API_KEY` to a real key if you want the
-LLM-authored answer path exercised. `.env` is gitignored and never committed.
-Leave it blank to run entirely on the deterministic fallback — nothing else
-needs to change.
-
+Open `.env` and set `OPENAI_API_KEY` to a real key
 ## Project layout
 
 ```
@@ -79,7 +75,7 @@ src/
   rag/           Step 3 — retrieval, generation, citations, safety/scope
   evaluation/    DeepEval-based evaluation harness
   app/           Shared engine/client construction used by app.py
-app.py           Streamlit UI
+app.py           Streamlit chat UI
 data/
   raw/           Step 1 output (scraped HTML/JSON snapshots, manifest)
   processed/     Step 2 output (comparison table, evidence, snapshots)
@@ -124,8 +120,6 @@ answers, citations, and refusal behavior are identical either way.
 
 ```bash
 python -m src.rag.pipeline --query "What is the price of the Sonicare Prestige 9900?"
-python -m src.rag.pipeline --query "Which products have 7 brushing modes?" --debug
-python -m src.rag.pipeline --query "..." --no-llm   # force the deterministic fallback
 ```
 
 ### Streamlit UI
@@ -134,31 +128,35 @@ python -m src.rag.pipeline --query "..." --no-llm   # force the deterministic fa
 streamlit run app.py
 ```
 
-The first question in a given server session takes a few extra seconds while
-the embedding model and index load; every question after that reuses the
-same cached engine. Each answer includes a **Sources** section linking to the
-exact official product page(s) it was grounded in, and an optional debug
-panel showing the detected intent, matched product, and citation validity
-for each statement — never raw prompts or an API key.
+It's a chat interface: questions and answers persist in the session as a
+conversation, with a Sources panel alongside that shows the cited product
+page(s), section, and quote for whichever answer you last clicked a
+citation marker on. A Debug/Retrieval details expander below the chat
+shows the detected intent, matched product, and citation validity for the
+most recent answer — never raw prompts or an API key.
+
+The first question in a given server session takes a few extra seconds
+while the embedding model and index load; every question after that reuses
+the same cached engine.
 
 ## Usage notes and known limitations
 
-- **The copilot only knows about Philips Sonicare and Oral-B products present
-  in its catalog**, acquired from the two brands' official US product pages.
-  It will not answer questions about other brands, other regions, or
-  third-party retailer listings, and it will say so rather than improvise.
-- **Give the exact product name when comparing two products.** Several
-  models share most of their name with a close sibling (for example, *Oral-B
-  iO Series 9* and *Oral-B iO Series 9 Genius* are two different products).
-  To get a comparison resolved correctly and unambiguously, use the full,
-  exact product name as it appears on the product page — a partial or
-  approximate name is the single most common cause of an "I found more than
-  one matching product" clarification response. This version of the system
-  is built and tested against exact names; broader fuzzy matching for
-  comparisons is not guaranteed.
-- The system never gives medical, dental, or purchasing-recommendation
-  advice, and never reveals or discusses its own instructions — these
-  requests are refused by design, not by omission.
+- The copilot only knows about Philips Sonicare and Oral-B products in its
+  catalog, acquired from the two brands' official US product pages. It
+  won't answer questions about other brands, other regions, or retailer
+  listings — it says so rather than improvise.
+- Give the exact product name when comparing two products. Several models
+  share most of their name with a close sibling (*Oral-B iO Series 9* vs.
+  *Oral-B iO Series 9 Genius*, for example). A partial or approximate name
+  is the most common cause of an "I found more than one matching product"
+  clarification. Fuzzy matching across sibling variants isn't guaranteed.
+- Attribute and intent detection (which attribute a question is about,
+  whether it's a comparison or an exhaustive "which products" question)
+  uses the LLM when a key is configured, with a deterministic regex
+  fallback otherwise — same no-key-required guarantee as generation.
+- Medical, dental, and purchasing-recommendation advice is refused by
+  design, as is any request to reveal or discuss the system's own
+  instructions.
 
 ## Running the tests
 
@@ -187,14 +185,6 @@ DeepEval's built-in metrics and classifiers, plus a small number of custom
 GEval criteria documented in `src/evaluation/`.
 
 ```bash
-# Offline: deterministic checks only, no API key used, safe to run anywhere
-python scripts/evaluate.py
-
-# Live: real application LLM calls + a real DeepEval judge model (gpt-4.1
-# by default) — this makes billed API calls
-python scripts/evaluate.py --live
-
-# Run just one category (repeatable)
 python scripts/evaluate.py --live --category application
 ```
 
@@ -202,18 +192,6 @@ Each invocation prints a PASS/FAIL line per quality gate
 (`data/evaluation/quality_gates.json`) and exits non-zero if any gate for a
 category that was actually run fails. A category not requested is skipped,
 not failed.
-
-Two additional, narrower evaluation tools:
-
-```bash
-# Retrieval-only ablation: BM25-only vs. semantic-only vs. hybrid vs.
-# hybrid+reranker, Recall@5/@10 — no LLM, no DeepEval judge
-python scripts/evaluate_retrieval.py
-
-# Save the current offline/live answer-quality numbers as the baseline to
-# compare future changes against (run once, before changing behavior)
-python scripts/save_answer_quality_baseline.py
-```
 
 ## Output locations at a glance
 
@@ -232,12 +210,12 @@ every evaluation run, so nothing meaningful is lost by not tracking them.
 
 ## Troubleshooting
 
-- **`ModuleNotFoundError` when running a script directly** — run scripts from
+- `ModuleNotFoundError` when running a script directly — run scripts from
   the repository root (`python scripts/build_data.py`, not from inside
   `scripts/`), and make sure the virtual environment is activated.
-- **A question about a product that should exist comes back "not found"** —
+- A question about a product that should exist comes back "not found" —
   confirm the product name matches the catalog exactly; see
   [Usage notes](#usage-notes-and-known-limitations).
-- **Evaluation `--live` fails immediately** — check that `OPENAI_API_KEY` is
-  set in `.env` or your shell environment; offline mode (the default) never
-  needs it.
+- `evaluate.py --live` fails immediately — check that `OPENAI_API_KEY` is
+  set in `.env` or the shell environment; offline mode (the default)
+  doesn't need it.

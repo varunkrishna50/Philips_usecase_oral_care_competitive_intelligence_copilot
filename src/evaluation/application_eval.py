@@ -7,8 +7,9 @@ Runs the full pipeline (the same shared `answer_query()` AnswerResult
 runner.py computed once per case) and scores it:
 
 * GEval **Correctness** (vs `golden_answer`) / **Completeness** (vs
-  `expected_claims`) -- both references built independently in
-  golden_dataset.py, never from the pipeline's own output.
+  `expected_claims`) -- both references are hand-authored in
+  test_cases.json (`expected_behavior` / `must_include`), never from
+  the pipeline's own output.
 * **Content checks** -- deterministic (`content_checks.check_content`,
   `must_include`/`must_not_include`).
 * **Citation check** -- `CitationFaithfulnessMetric`
@@ -67,7 +68,6 @@ from src.rag.safety import USER_MESSAGE_TRUST_NOTICE
 from . import answer_quality, comparison_eval
 from .content_checks import check_content
 from .deepeval_support import MetricOutcome, aggregate_scores, classify_if_live, measure_if_live
-from .gold_labels import GoldCorpus
 from .golden_dataset import GoldenCase
 from .judge import judge_model
 from .retriever_eval import chunks_from_retrieval_result
@@ -119,14 +119,14 @@ NON_ADVICE_TYPES = ["medical", "dental"]
 PROMPT_INJECTION_RELEVANT_CATEGORIES = {"prompt_injection_unsupported_claim"}
 
 
-def _comparison_arithmetic(golden: GoldenCase, engine: RetrievalEngine, corpus: GoldCorpus) -> MetricOutcome:
+def _comparison_arithmetic(golden: GoldenCase, engine: RetrievalEngine) -> MetricOutcome:
     case = golden.test_case
     product_a_id, product_b_id = case.comparison_pair
     product_a = next(p for p in engine.product_corpus if p.product_id == product_a_id)
     product_b = next(p for p in engine.product_corpus if p.product_id == product_b_id)
     ok, reasons = True, []
     for attribute in case.gold_attributes:
-        gold = comparison_eval.compute_gold_comparison(corpus, product_a_id, product_b_id, attribute)
+        gold = comparison_eval.compute_gold_comparison(engine.product_corpus, product_a_id, product_b_id, attribute)
         pipeline_result = compare_attribute(product_a, product_b, attribute, engine.retrieval_documents)
         check = comparison_eval.check_pipeline_comparison(gold, pipeline_result)
         if not check.passed:
@@ -174,7 +174,7 @@ class ApplicationCaseResult:
 
 
 def evaluate_case(
-    golden: GoldenCase, answer, engine: RetrievalEngine, corpus: GoldCorpus, mode: str,
+    golden: GoldenCase, answer, engine: RetrievalEngine, mode: str,
     usage: Optional[dict], latency_seconds: Optional[float],
 ) -> ApplicationCaseResult:
     actual_output = (answer.answer_text or "").strip()
@@ -213,7 +213,7 @@ def evaluate_case(
         metrics.append(MetricOutcome("CitationFaithfulness", exercised=False, error="no retrieval_context to check citations against"))
 
     if golden.category == "comparison" and golden.test_case.comparison_pair:
-        metrics.append(_comparison_arithmetic(golden, engine, corpus))
+        metrics.append(_comparison_arithmetic(golden, engine))
 
     metrics.extend(_safety_bundle(golden, actual_output, mode))
 
@@ -227,7 +227,7 @@ def evaluate_case(
 
 
 def run(
-    goldens: list[GoldenCase], answers: dict[str, object], engine: RetrievalEngine, corpus: GoldCorpus,
+    goldens: list[GoldenCase], answers: dict[str, object], engine: RetrievalEngine,
     evidence_by_id: dict, mode: str,
     usage_by_id: Optional[dict] = None, latency_by_id: Optional[dict] = None,
 ) -> dict:
@@ -236,7 +236,7 @@ def run(
     case_results = []
     for g in goldens:
         answer = answers[g.id]
-        result = evaluate_case(g, answer, engine, corpus, mode, usage_by_id.get(g.id), latency_by_id.get(g.id))
+        result = evaluate_case(g, answer, engine, mode, usage_by_id.get(g.id), latency_by_id.get(g.id))
         if result.exercised and answer.segments:
             result.answer_quality = answer_quality.measure_answer(answer, evidence_by_id)
         case_results.append(result)

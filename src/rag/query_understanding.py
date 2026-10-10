@@ -1,9 +1,14 @@
-"""Deterministic query understanding: product recognition (3A.8/14/15),
-attribute mapping (3A.9), and intent classification (3A.13).
+"""Query understanding: product recognition (3A.8/14/15), attribute
+mapping (3A.9), and intent classification (3A.13).
 
-Nothing here uses an LLM or embeddings -- it's plain tokenization and
-regex, run before retrieval so the rest of the pipeline knows which
-product(s)/attribute(s) the query is actually about.
+Product recognition stays plain tokenization/regex over the real
+catalog (a closed, enumerable vocabulary -- no benefit to an LLM call
+for exact model/alias matching). Attribute mapping and intent
+classification are LLM-first (classify_query) -- open-vocabulary
+paraphrase (e.g. "how long do the heads last" for the same thing as
+"replacement interval") is exactly what regex enumeration can't keep
+up with; see the regex functions kept below (now internal) for the
+deterministic fallback used only when the LLM is unavailable/fails.
 """
 from __future__ import annotations
 
@@ -12,9 +17,10 @@ import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from .config import PRODUCT_ALIASES_CSV
+from .llm_provider import LLMUnavailable, OpenAIStructuredClient
 from .models import ProductRecord
 
 ProductMatchKind = Literal["matched", "ambiguous", "not_in_corpus", "none"]
@@ -367,7 +373,11 @@ ATTRIBUTE_PATTERNS: dict[str, list[str]] = {
     "coverage_tracking_details": [r"coverage tracking", r"position detection", r"3d teeth"],
     "brushing_zones": [r"how many (?:brushing )?zones", r"quadrant", r"sextant"],
     "zone_interval_seconds": [r"how often.*(?:alert|vibrat)", r"every \d+ seconds"],
-    "brush_head_replacement_interval": [r"replace.*brush head", r"how often.*(?:replace|change)"],
+    "brush_head_replacement_interval": [
+        r"\b(?:how often|how frequently|when).{0,50}\b(?:replace|change)\b.{0,30}\bbrush heads?\b",
+        r"\bbrush heads? replacement interval\b",
+        r"\binterval for replacing brush heads?\b",
+    ],
     "cleaning_technology": [r"motor", r"cleaning technology", r"micro.vibration", r"oscillat"],
     "brush_head_compatibility": [r"brush head.*compatib", r"compatible.*brush head", r"which brush heads"],
     "feel_and_noise": [r"\bnoise\b", r"\bquiet", r"how does it feel"],
@@ -388,9 +398,11 @@ _PRODUCT_NAME_RECHARGEABLE_RE = re.compile(r"\brechargeable\b(?=\s+(?:electric\s
 _DESCRIBE_RE = re.compile(r"\bdescribe\b|tell me about", re.I)
 
 
-def detect_attributes(query: str) -> list[str]:
-    """Every Step 2 attribute whose natural-language synonyms appear in
-    the query, in ATTRIBUTE_PATTERNS's declaration order (stable)."""
+def _detect_attributes_deterministic(query: str) -> list[str]:
+    """Regex fallback for detect_attributes(): every Step 2 attribute
+    whose natural-language synonyms appear in the query, in
+    ATTRIBUTE_PATTERNS's declaration order (stable). Only reached when
+    the LLM classifier is unavailable or fails -- see classify_query()."""
     # "Rechargeable" in a product's own name ("...Rechargeable Electric Toothbrush, Cosmic Black")
     # is not a question about battery life or charging.
     query = _PRODUCT_NAME_RECHARGEABLE_RE.sub(" ", query)
@@ -404,6 +416,15 @@ def detect_attributes(query: str) -> list[str]:
     if "description" in hits and len(hits) > 1 and not _DESCRIBE_RE.search(query):
         hits.remove("description")
     return hits
+
+
+def detect_attributes(query: str) -> list[str]:
+    """Public entry point kept for callers/tests that only need
+    attributes: LLM-first via classify_query(), deterministic fallback
+    on LLMUnavailable. Prefer classify_query() directly when intent is
+    also needed -- it makes one LLM call for both instead of two."""
+    attributes, _intent = classify_query(query)
+    return attributes
 
 
 # Numeric Step 2 attributes an exhaustive query can ask about by exact
@@ -454,12 +475,99 @@ _COMPARISON_RE = re.compile(
 _COMPARISON_SPLIT_RE = re.compile(r"\bvs\.?\b|\bversus\b|\band\b|\bor\b|\bcompar\w*\b", re.I)
 
 
-def classify_intent(query: str, product_match: ProductMatch) -> Intent:
+def _classify_intent_deterministic(query: str) -> Intent:
+    """Regex fallback for classify_intent(): only reached when the LLM
+    classifier is unavailable or fails -- see classify_query()."""
     if _EXHAUSTIVE_RE.search(query):
         return "exhaustive"
     if _COMPARISON_RE.search(query):
         return "comparison"
     return "normal"
+
+
+def classify_intent(query: str, product_match: ProductMatch) -> Intent:
+    """Public entry point kept for callers/tests that only need intent
+    (product_match is unused -- intent never depended on it, even in
+    the original regex version). LLM-first via classify_query(),
+    deterministic fallback on LLMUnavailable. Prefer classify_query()
+    directly when attributes are also needed -- one LLM call, not two."""
+    _attributes, intent = classify_query(query)
+    return intent
+
+
+# ---------------------------------------------------------------------------
+# LLM-first query classification (attributes + intent in one call).
+# Both are open-vocabulary paraphrase problems (unlike product matching,
+# a closed catalog lookup) -- a regex has to anticipate every phrasing
+# ("how often should I replace the heads" vs "how long do heads last"
+# vs "replacement schedule"); an LLM classifies from meaning instead.
+# Falls back to the regex rules above only when the LLM is unavailable
+# or fails (no API key, network error, bad JSON, ...) -- same
+# LLMUnavailable discipline as every other LLM call in this app (3B's
+# answer generation): never crashes the pipeline, never leaves the
+# caller guessing which path ran.
+# ---------------------------------------------------------------------------
+
+_VALID_INTENTS: tuple[Intent, ...] = ("exhaustive", "comparison", "normal")
+
+
+def _classification_system_prompt() -> str:
+    attribute_lines = "\n".join(f"- {attr}" for attr in ATTRIBUTE_PATTERNS)
+    return (
+        "You classify a single user question about Philips Sonicare and "
+        "Oral-B electric toothbrushes for a retrieval pipeline. Respond "
+        'with ONLY a JSON object of the exact form {"attributes": '
+        '["..."], "intent": "normal"} and nothing else.\n\n'
+        '"attributes": every item from this exact list that the question '
+        "is asking about, spelled exactly as shown (snake_case, lowercase); "
+        "an empty list if the question does not ask about any of them. "
+        "Pick attributes by what the question actually wants to know, not "
+        "by shared words -- a question about how many replacement heads "
+        "come in the box asks about included_items/brush_heads_included, "
+        "NOT brush_head_replacement_interval (that is a different "
+        "question: how often heads need replacing).\n"
+        f"{attribute_lines}\n\n"
+        '"intent": exactly one of:\n'
+        '"exhaustive" -- a "which product(s)/model(s)" question expecting '
+        "every matching product to be listed\n"
+        '"comparison" -- the question compares two or more specifically '
+        "named products against each other\n"
+        '"normal" -- anything else, including a question about a single '
+        "product"
+    )
+
+
+def _parse_classification(raw: dict) -> tuple[list[str], Intent]:
+    attrs_raw = raw.get("attributes") if isinstance(raw, dict) else None
+    # Hallucinated/unknown attribute names are dropped rather than passed
+    # through -- every attribute name downstream must be a real
+    # comparison_table.csv column (see ATTRIBUTE_PATTERNS's own docstring).
+    attributes = [a for a in attrs_raw if a in ATTRIBUTE_PATTERNS] if isinstance(attrs_raw, list) else []
+    intent_raw = raw.get("intent") if isinstance(raw, dict) else None
+    intent: Intent = intent_raw if intent_raw in _VALID_INTENTS else "normal"
+    return attributes, intent
+
+
+def classify_query(
+    query: str, llm_client: Optional[OpenAIStructuredClient] = None, use_llm: bool = True,
+) -> tuple[list[str], Intent]:
+    """The attributes (if any) and intent for `query`, LLM-first with a
+    deterministic regex fallback. One LLM call covers both -- callers
+    that need both should call this directly rather than detect_attributes()
+    + classify_intent(), which would otherwise each make their own call.
+
+    use_llm=False forces the deterministic path without even attempting
+    a call -- for a caller that already asked for fully deterministic
+    behavior (e.g. generation.py's --no-llm), so that request isn't
+    half-honored by this stage still reaching out to the LLM."""
+    if not use_llm:
+        return _detect_attributes_deterministic(query), _classify_intent_deterministic(query)
+    client = llm_client or OpenAIStructuredClient()
+    try:
+        raw = client.generate_json(_classification_system_prompt(), f"Question: {query}")
+    except LLMUnavailable:
+        return _detect_attributes_deterministic(query), _classify_intent_deterministic(query)
+    return _parse_classification(raw)
 
 
 def detect_comparison_products(query: str, products: list[ProductRecord]) -> list[ProductMatch]:
@@ -480,4 +588,20 @@ def detect_comparison_products(query: str, products: list[ProductRecord]) -> lis
             continue
         seen_product_ids.add(product.product_id)
         matches.append(match)
+    return matches
+
+
+def detect_comparison_not_in_corpus(query: str, products: list[ProductRecord]) -> bool:
+    """True if a comparison query names a SPECIFIC product that is not
+    in the corpus (3A.15 extended to comparisons) -- distinguishes "one
+    of the two named products doesn't exist" (should refuse, same as a
+    single-product not-in-corpus query) from "fewer than 2 products
+    resolved because this wasn't really naming two specific models"
+    (e.g. a vague "compare these" with nothing concrete to flag),
+    which should still fall through to normal retrieval. Without this,
+    a comparison naming one real and one nonexistent product silently
+    answered about only the real one, with no indication the other
+    product was never found."""
+    segments = [s.strip() for s in _COMPARISON_SPLIT_RE.split(query) if s.strip()]
+    return any(detect_products(segment, products).kind == "not_in_corpus" for segment in segments)
     return matches

@@ -87,6 +87,24 @@ class TestRealRetrieval:
         assert result.comparison_results is not None
         assert set(result.comparison_results.keys()) == {oralb.product_id, philips.product_id}
 
+    def test_comparison_with_one_product_not_in_corpus_is_refused_not_silently_answered(self, real_engine: RetrievalEngine):
+        """Regression: "Compare X and Y" where X doesn't exist in the corpus must refuse (3A.15
+        extended to comparisons), not silently fall through to a normal answer about only Y with
+        no indication that X was never found -- previously detect_comparison_products() dropped
+        the not_in_corpus segment entirely, so this degraded into an unscoped single-product
+        answer about whichever product WAS real, with zero mention of the missing one."""
+        real_product = real_engine.product_corpus[0]
+        query = f"Compare the number of brushing modes on the Oral-B iO Series 12 and the {real_product.product_name}"
+        result = real_engine.retrieve(query)
+        assert result.not_in_corpus
+        assert result.comparison_results is None
+        assert result.results == []
+        # The real product WAS found -- the message must say so, not read as if neither product
+        # exists (regression: it used to reuse the generic "I couldn't find that product" wording
+        # unconditionally, implying total failure even when one side resolved successfully).
+        assert real_product.product_name in result.not_in_corpus_message
+        assert "I have information about" in result.not_in_corpus_message
+
     def test_user_prompt_injection_does_not_alter_retrieval_mechanics(self, real_engine: RetrievalEngine):
         """3a has no LLM to "obey" an injected instruction, so there's
         nothing that could fabricate the requested "Oral-B is cheaper"

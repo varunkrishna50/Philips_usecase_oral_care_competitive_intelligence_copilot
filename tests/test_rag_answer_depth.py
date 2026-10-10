@@ -107,6 +107,16 @@ def test_not_stated_flag_keeps_the_exact_template_and_no_detail_segments(real_en
     assert result.sources_text == ""
 
 
+def test_box_contents_question_does_not_add_replacement_interval_disclosure(real_engine):
+    query = (
+        "What comes in the box with the Oral-B iO Series 9, "
+        "and how many replacement brush heads are included?"
+    )
+    result = answer_query(query, real_engine, no_llm=True)
+    assert "replacement interval" not in result.answer_text.lower()
+    assert "brush heads" in result.answer_text.lower()
+
+
 def test_what_is_the_does_not_pull_in_the_description():
     assert "description" not in detect_attributes("What is the battery life of the Philips Sonicare 4100?")
     assert "description" in detect_attributes("What is the Philips Sonicare 4100?")

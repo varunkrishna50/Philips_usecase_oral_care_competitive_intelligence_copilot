@@ -245,26 +245,54 @@ def display_section(ev: RetrievalDocument) -> str:
     return region
 
 
-def render_sources_section(marker_by_id: dict[str, str], evidence_by_id: dict[str, RetrievalDocument]) -> str:
+@dataclass
+class SourceEntry:
+    """One Sources-panel entry: the same data render_sources_section()
+    formats into markdown, exposed structured so a presentation layer
+    (e.g. app.py's side panel) can render its own cards instead of
+    parsing that markdown back apart."""
+    marker: str
+    product_name: str
+    section: str  # "" when there is no meaningful section to show
+    quote: str
+    url: str
+
+
+def source_entries(marker_by_id: dict[str, str], evidence_by_id: dict[str, RetrievalDocument]) -> list[SourceEntry]:
+    """One entry per distinct marker, in marker order (S1, S2, ...) --
+    the single source of truth both render_sources_section() and any
+    structured consumer build from."""
     if not marker_by_id:
-        return ""
+        return []
     first_by_marker: dict[str, str] = {}
     for evidence_id, marker in marker_by_id.items():
         first_by_marker.setdefault(marker, evidence_id)  # one entry per marker (records sharing a quote share it)
     ordered = sorted(((eid, m) for m, eid in first_by_marker.items()), key=lambda kv: int(kv[1][1:]))
-    lines = ["Sources", ""]
-    # Two trailing spaces keep each line on its own line in Markdown renderers (Streamlit).
-    br = "  "
+    entries = []
     for evidence_id, marker in ordered:
         ev = evidence_by_id[evidence_id]
-        lines.append(f"[{marker}] {ev.product_name} -- official product page{br}")
-        section = display_section(ev)
-        if section:
-            lines.append(f"Section: {section}{br}")
         quote = " ".join(ev.shown_text.split())
         if len(quote) > QUOTE_MAX_CHARS:
             quote = quote[:QUOTE_MAX_CHARS].rsplit(" ", 1)[0] + " ..."
-        lines.append(f'Quote: "{quote}"{br}')
-        lines.append(ev.source_url)
+        entries.append(SourceEntry(
+            marker=marker, product_name=ev.product_name, section=display_section(ev),
+            quote=quote, url=ev.source_url,
+        ))
+    return entries
+
+
+def render_sources_section(marker_by_id: dict[str, str], evidence_by_id: dict[str, RetrievalDocument]) -> str:
+    entries = source_entries(marker_by_id, evidence_by_id)
+    if not entries:
+        return ""
+    lines = ["Sources", ""]
+    # Two trailing spaces keep each line on its own line in Markdown renderers (Streamlit).
+    br = "  "
+    for e in entries:
+        lines.append(f"[{e.marker}] {e.product_name} -- official product page{br}")
+        if e.section:
+            lines.append(f"Section: {e.section}{br}")
+        lines.append(f'Quote: "{e.quote}"{br}')
+        lines.append(e.url)
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"

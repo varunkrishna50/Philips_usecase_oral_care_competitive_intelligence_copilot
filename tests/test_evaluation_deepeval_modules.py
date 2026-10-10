@@ -9,7 +9,6 @@ from pathlib import Path
 
 from src.evaluation import application_eval, golden_dataset, retriever_eval
 from src.evaluation.deepeval_support import MetricOutcome, classify_if_live, measure_if_live
-from src.evaluation.gold_labels import load_gold_corpus
 from src.evaluation.schema import TestCase, load_test_suite
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,38 +21,36 @@ def _case(**kw) -> TestCase:
 
 # --- golden_dataset ------------------------------------------------------------------------------------
 
-def test_direct_attribute_case_builds_one_claim_per_product_attribute_pair():
-    corpus = load_gold_corpus()
-    product = next(p for p in corpus.products if isinstance(p.get("price"), (int, float)) and not isinstance(p.get("price"), bool))
-    case = _case(gold_products=[product.product_id], gold_attributes=["price"])
-    claims = golden_dataset.build_expected_claims(corpus, case)
-    assert len(claims) == 1
-    assert product.product_name in claims[0] and str(product.get("price")) in claims[0]
+def test_expected_claims_mirror_must_include():
+    case = _case(must_include=["4", "travel case", "charger"])
+    golden = golden_dataset.build_golden_case(case)
+    assert golden.expected_claims == ["4", "travel case", "charger"]
 
 
-def test_comparison_claims_describe_both_products_for_a_boolean_attribute():
-    corpus = load_gold_corpus()
-    a, b = corpus.products[0], corpus.products[1]
-    case = _case(category="comparison", comparison_pair=[a.product_id, b.product_id],
-                 gold_attributes=["pressure_sensing"], gold_products=[a.product_id, b.product_id],
-                 expected_answer_type="comparison")
-    claims = golden_dataset.build_expected_claims(corpus, case)
-    assert any(a.product_name in c for c in claims)
-    assert any(b.product_name in c for c in claims)
+def test_comparison_case_uses_the_same_must_include_mechanism():
+    """Comparison cases are no longer special-cased -- expected_claims
+    comes from must_include the same way for every category now."""
+    case = _case(category="comparison", comparison_pair=["p_a", "p_b"],
+                 gold_attributes=["pressure_sensing"], gold_products=["p_a", "p_b"],
+                 expected_answer_type="comparison", must_include=["pressure sensor"])
+    golden = golden_dataset.build_golden_case(case)
+    assert golden.expected_claims == ["pressure sensor"]
 
 
-def test_golden_answer_falls_back_to_expected_behavior_when_nothing_else_is_available():
-    corpus = load_gold_corpus()
-    case = _case(category="out_of_corpus", gold_products=[], expected_answer_type="refusal_not_in_corpus")
-    golden = golden_dataset.build_golden_case(case, corpus)
+def test_golden_answer_is_always_expected_behavior():
+    case = _case(category="out_of_corpus", gold_products=[], expected_answer_type="refusal_not_in_corpus",
+                 expected_behavior="fallback text")
+    golden = golden_dataset.build_golden_case(case)
     assert golden.golden_answer == "fallback text"
-    assert golden.golden_context == [] and golden.expected_claims == []
+    assert golden.expected_claims == []
+    # golden_context is [golden_answer] + expected_claims -- never empty as long as
+    # expected_behavior is non-empty (required by the schema), even with no must_include.
+    assert golden.golden_context == ["fallback text"]
 
 
 def test_build_golden_dataset_covers_every_real_test_case():
     suite = load_test_suite(ROOT / "data" / "evaluation" / "test_cases.json")
-    corpus = load_gold_corpus()
-    goldens = golden_dataset.build_golden_dataset(suite.cases, corpus)
+    goldens = golden_dataset.build_golden_dataset(suite.cases)
     assert len(goldens) == len(suite.cases) >= 15
     assert {g.id for g in goldens} == {c.id for c in suite.cases}
 
@@ -151,8 +148,7 @@ def test_contextual_relevancy_is_skipped_for_by_design_empty_retrieval_categorie
     even when nothing in the corpus answers the literal question --
     ContextualRelevancyMetric can't tell "correctly found nothing" from
     a real miss, so it's never even constructed for these categories."""
-    corpus = load_gold_corpus()
-    product = corpus.products[0]
+    product = real_engine.product_corpus[0]
     question = f"What is the price of the {product.product_name}?"
 
     excluded = _case(category="missing_attribute", question=question, gold_products=[product.product_id])
@@ -170,22 +166,20 @@ def test_contextual_relevancy_is_skipped_for_by_design_empty_retrieval_categorie
 # --- application_eval: comparison arithmetic (the one remaining deterministic metric) -------------------------
 
 def test_comparison_arithmetic_passes_for_a_real_comparison_case(real_engine):
-    corpus = load_gold_corpus()
     suite = load_test_suite(ROOT / "data" / "evaluation" / "test_cases.json")
     case = next(c for c in suite.cases if c.category == "comparison")
-    golden = golden_dataset.build_golden_case(case, corpus)
+    golden = golden_dataset.build_golden_case(case)
 
-    outcome = application_eval._comparison_arithmetic(golden, real_engine, corpus)
+    outcome = application_eval._comparison_arithmetic(golden, real_engine)
     assert outcome.exercised and outcome.passed is True and outcome.score == 1.0
 
 
 def test_comparison_arithmetic_fails_when_the_pipeline_disagrees_with_gold(real_engine, monkeypatch):
-    corpus = load_gold_corpus()
     suite = load_test_suite(ROOT / "data" / "evaluation" / "test_cases.json")
     # Numeric or boolean, whichever the suite's first comparison case happens to use --
     # _wrong_gold below corrupts either kind, so this doesn't depend on attribute type.
     case = next(c for c in suite.cases if c.category == "comparison")
-    golden = golden_dataset.build_golden_case(case, corpus)
+    golden = golden_dataset.build_golden_case(case)
 
     from dataclasses import replace
 
@@ -193,8 +187,8 @@ def test_comparison_arithmetic_fails_when_the_pipeline_disagrees_with_gold(real_
 
     real_compute = comparison_eval_mod.compute_gold_comparison
 
-    def _wrong_gold(corpus_arg, product_a_id, product_b_id, attribute):
-        gold = real_compute(corpus_arg, product_a_id, product_b_id, attribute)
+    def _wrong_gold(product_corpus_arg, product_a_id, product_b_id, attribute):
+        gold = real_compute(product_corpus_arg, product_a_id, product_b_id, attribute)
         if gold.diff is not None:
             return replace(gold, diff=gold.diff + 9999)
         if gold.a_true is not None:
@@ -202,5 +196,5 @@ def test_comparison_arithmetic_fails_when_the_pipeline_disagrees_with_gold(real_
         return gold
 
     monkeypatch.setattr(comparison_eval_mod, "compute_gold_comparison", _wrong_gold)
-    outcome = application_eval._comparison_arithmetic(golden, real_engine, corpus)
+    outcome = application_eval._comparison_arithmetic(golden, real_engine)
     assert outcome.exercised and outcome.passed is False

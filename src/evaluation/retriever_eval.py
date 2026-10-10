@@ -63,8 +63,8 @@ def chunks_from_retrieval_result(result) -> list[str]:
     return [f"{sd.document.product_name}: {sd.document.shown_text}" for sd in result.results]
 
 
-def retrieved_chunks(golden: GoldenCase, engine) -> list[str]:
-    return chunks_from_retrieval_result(engine.retrieve(golden.question))
+def retrieved_chunks(golden: GoldenCase, engine, mode: str) -> list[str]:
+    return chunks_from_retrieval_result(engine.retrieve(golden.question, no_llm=(mode == "offline")))
 
 
 @dataclass
@@ -83,7 +83,7 @@ def evaluate_case(golden: GoldenCase, engine, mode: str) -> RetrieverCaseResult:
             golden.id, golden.category, False,
             "no document-level gold scope for this category -- not a retrieval question",
         )
-    chunks = retrieved_chunks(golden, engine)
+    chunks = retrieved_chunks(golden, engine, mode)
     if not chunks:
         return RetrieverCaseResult(golden.id, golden.category, False, "retriever returned nothing for this query")
 

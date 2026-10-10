@@ -5,7 +5,7 @@
       "id": "fact_included_items_io9",
       "question": "What comes in the box with the Oral-B iO Series 9, and how many replacement brush heads are included?",
       "category": "included_items",
-      "expected_behavior": "Lists handle, 4 iO Ultimate Clean brush heads, Power2Go charging travel case (with cord) and magnetic charger, cited to the iO9 product page. Must say 4 brush heads.The page does not mention brush head replacement interval for Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine.",
+      "expected_behavior": "Lists handle, 4 iO Ultimate Clean Replacement brush heads, Power2Go charging travel case with charging cord and magnetic charger, cited to the iO9 product page. Must say 4 brush heads.",
       "gold_products": [
         "oralb_io-series-9-rechargeable-electric-toothbrush"
       ],
@@ -23,7 +23,7 @@
       "id": "compare_pressure_feedback_9900_vs_io9",
       "question": "Compare Sonicare 9900 and Oral-B iO Series 7 in terms of pressure sensing",
       "category": "comparison",
-      "expected_behavior": "Describes Both the Sonicare 9900 and the Oral-B iO Series 7 feature pressure sensors to help protect your gums and enamel. The Oral-B iO Series 7 uses a Smart Pressure Sensor that changes color to indicate if you are brushing too hard, too light, or just right, while the Sonicare 9900 offers a visual pressure sensor to provide feedback during brushing.",
+      "expected_behavior": "Describes the Philips has visual sensor pressure but no details about it and the Oral-B Smart Pressure Sensor red when too hard / white when too light /geen when just right, each cited to its own page. Must not describe the Philips sensor as only a generic 'visual sensor'.",
       "gold_products": [
         "philips_hx9990-13",
         "oralb_io-series-9-rechargeable-electric-toothbrush"
@@ -46,7 +46,7 @@
       "id": "compare_modes_names_9900_vs_io9",
       "question": "Compare the brushing modes of the Sonicare Prestige 9900 and the Oral-B iO Series 9, including how many each has and what they are called.",
       "category": "comparison",
-      "expected_behavior": "States 5 vs 7 and names the modes for both products, citing each product page. Accepts 'Deep Clean' or 'Deep Clean+'. NOTE: the Oral-B compare widget lists Smart Adapt in place of Super Sensitive for iO9; the product page and FAQ list Super Sensitive, so Super Sensitive is the primary gold.",
+      "expected_behavior": "States 5 vs 7 and names the modes for both products, citing each product page. For Sonicare, modes are Clean, Deep Clean, Gum Health, Sensitive, White+. For iO Series 9 modes are Daily Clean, Gum Care, Whiten, Sensitive, Super Sensitive, Intense Clean, Tongue Clean.",
       "gold_products": [
         "philips_hx9990-13",
         "oralb_io-series-9-rechargeable-electric-toothbrush"
@@ -75,7 +75,7 @@
       "id": "partial_battery_life_days_9900_vs_io9",
       "question": "How many days does the battery last on a full charge for the Sonicare Prestige 9900 versus the Oral-B iO Series 9?",
       "category": "partial_not_found",
-      "expected_behavior": "Gives 14 days for Prestige 9900 with citation, and clearly says the iO9 battery life in days is not stated. Must NOT invent a number of days for the iO9.",
+      "expected_behavior": "Gives Up to 14 days for Prestige 9900 with citation, and clearly says the iO9 battery life in days is not stated. Must NOT invent a number of days for the iO9.",
       "gold_products": [
         "philips_hx9990-13",
         "oralb_io-series-9-rechargeable-electric-toothbrush"
@@ -96,7 +96,7 @@
       "id": "calc_price_diff_dc9000_vs_io9",
       "question": "Which is cheaper, the Sonicare DiamondClean 9000 or the Oral-B iO Series 9, and by how much?",
       "category": "multi_hop_calculation",
-      "expected_behavior": "States $199.96 and $329.99 with citations to each product page and computes $130.03. The iO9 list price is $329.99 (a '$160 off' promotion banner on the Oral-B page is not the list price).",
+      "expected_behavior": "SStates $199.96 and $329.99 with citations to each product page and computes $130.03. The iO9 list price is $329.99.",
       "gold_products": [
         "philips_hx9911-90",
         "oralb_io-series-9-rechargeable-electric-toothbrush"
@@ -119,7 +119,7 @@
       "id": "compare_timer_app_dc9000_vs_io9",
       "question": "Compare the Sonicare DiamondClean 9000 and the Oral-B iO Series 9 on brushing-time guidance and app features.",
       "category": "comparison",
-      "expected_behavior": "Names BrushPacer + SmartTimer and the Sonicare app progress tracking for DiamondClean 9000, and the 2-minute display timer plus Oral-B App features (smart brushing recognition, 3D Teeth Tracking) for iO9. Cited per product.",
+      "expected_behavior": "Names BrushPacer and SmartTimer and the Sonicare app delivers guided brushing, tips and tricks, and personalized content. It also monitors brushing patterns over time for DiamondClean 9000. For the Oral-B, the 2-minute timer in an interactive color display plus Oral-B App features (smart brushing recognition, 3D Teeth Tracking) for iO9. Cited per product.",
       "gold_products": [
         "philips_hx9911-90",
         "oralb_io-series-9-rechargeable-electric-toothbrush"
@@ -144,7 +144,7 @@
       "id": "false_premise_modes_vs_intensities",
       "question": "The Sonicare Prestige 9900 has 3 intensities, so that means it has 3 brushing modes, right?",
       "category": "false_premise",
-      "expected_behavior": "Corrects the premise: 5 modes AND 3 intensities are separate features. Does not agree with the user.",
+      "expected_behavior": "The page does not say enough to answer this.",
       "gold_products": [
         "philips_hx9990-13"
       ],
@@ -162,7 +162,7 @@
       "id": "conflict_mode_count_dc9000",
       "question": "How many brushing modes does the Sonicare DiamondClean 9000 have, and what are they?",
       "category": "conflicting_source_data",
-      "expected_behavior": "Answers 4 modes, names all four, and ideally notes the 'five modes' wording on the page is inconsistent with the four listed. Must not answer 5 or invent a fifth mode.",
+      "expected_behavior": "AAnswers 4 modes, names all four, and ideally notes the 'five modes' wording on the page is inconsistent with the four listed. Must not answer 5 or invent a fifth mode.",
       "gold_products": [
         "philips_hx9911-90"
       ],
@@ -299,7 +299,7 @@
       "id": "nf_out_of_region_price_inr",
       "question": "What is the price of the Sonicare Prestige 9900 in Indian rupees?",
       "category": "out_of_scope_region",
-      "expected_behavior": "Says an INR price is not found in the source pages (US-only). Must not output a rupee amount or a currency conversion.",
+      "expected_behavior": "Can only answer from the official US product pages (www.usa.philips.com and oralb.com), so I can't help with pages from other countries.",
       "gold_products": [
         "philips_hx9990-13"
       ],

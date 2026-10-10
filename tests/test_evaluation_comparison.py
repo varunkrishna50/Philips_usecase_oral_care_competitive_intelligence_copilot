@@ -1,31 +1,28 @@
 """Tests for 3C.9 deterministic comparison evaluation. Gold comparisons
-are computed independently of src.rag.comparison_engine; this file
-checks both the gold computation itself and the check against a
-pipeline-shaped ComparisonResult."""
+are read from the real, already-loaded product catalog (ProductRecord's
+own attributes dict); this file checks both the gold computation itself
+and the check against a pipeline-shaped ComparisonResult."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from src.evaluation.comparison_eval import check_pipeline_comparison, compute_gold_comparison
-from src.evaluation.gold_labels import GoldCorpus, GoldEvidence, GoldProduct
+from src.rag.models import ProductRecord
 
 
-def _corpus() -> GoldCorpus:
-    products = [
-        GoldProduct(product_id="p_a", brand="Philips", product_name="A", product_url="https://example.com",
-                    attributes={"price": 100.0, "pressure_sensing": True}),
-        GoldProduct(product_id="p_b", brand="Oral-B", product_name="B", product_url="https://example.com",
-                    attributes={"price": 70.0, "pressure_sensing": None}),
+def _product(product_id: str, brand: str, **attributes) -> ProductRecord:
+    return ProductRecord(
+        product_id=product_id, brand=brand, product_name=product_id.upper(),
+        product_url="https://example.com", discovered_url="x", source_listing_url="x",
+        retrieved_at="2026-01-01T00:00:00Z", attributes=attributes,
+    )
+
+
+def _corpus() -> list[ProductRecord]:
+    return [
+        _product("p_a", "Philips", price=100.0, pressure_sensing=True),
+        _product("p_b", "Oral-B", price=70.0, pressure_sensing=None),
     ]
-    evidence = [
-        GoldEvidence(evidence_id="p_a:price:0", product_id="p_a", attribute="price", value=100.0,
-                     status="stated", evidence_text="$100.00", source_url="https://example.com"),
-        GoldEvidence(evidence_id="p_b:price:0", product_id="p_b", attribute="price", value=70.0,
-                     status="stated", evidence_text="$70.00", source_url="https://example.com"),
-        GoldEvidence(evidence_id="p_a:pressure_sensing:0", product_id="p_a", attribute="pressure_sensing", value=True,
-                     status="stated", evidence_text="Has a pressure sensor.", source_url="https://example.com"),
-    ]
-    return GoldCorpus(products=products, evidence=evidence)
 
 
 class TestComputeGoldComparison:
@@ -38,6 +35,11 @@ class TestComputeGoldComparison:
     def test_boolean_one_side_not_mentioned_is_not_comparable(self):
         corpus = _corpus()
         gold = compute_gold_comparison(corpus, "p_a", "p_b", "pressure_sensing")
+        assert not gold.comparable
+
+    def test_unknown_product_id_is_not_comparable(self):
+        corpus = _corpus()
+        gold = compute_gold_comparison(corpus, "p_a", "not-a-real-product", "price")
         assert not gold.comparable
 
 

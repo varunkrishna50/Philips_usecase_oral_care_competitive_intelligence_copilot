@@ -231,35 +231,6 @@ way, keyed by a slug of their URL, under `data/raw/html/<brand>/_listing_*.html`
 Re-running `python scripts/build_data.py` with no flags after a successful
 run completes in well under a second, with zero HTTP requests.
 
-## Known limitations
-
-- **Color names for Philips variants are left `null`.** The category page
-  only ever shows one SKU per model, and the sibling-SKU swatch links on a
-  product page don't carry a visible color name in the markup we checked.
-  Rather than guess from the SKU code, the color label is left unavailable.
-- **Oral-B variant grouping is a slug heuristic**, not a guarantee. It's
-  cross-checked against each scraped page's own authoritative color-swatch
-  links, but a model whose discovery-time slug doesn't fit the
-  `<base>-<color-tokens>` shape could in principle be mis-grouped. None of
-  the ~13 Oral-B models encountered during development triggered this.
-- **Twin-packs/bundles are excluded entirely**, as documented above and per
-  explicit instruction — they are not represented anywhere in the raw
-  dataset, including as variants.
-- **Oral-B Kids electric toothbrushes are out of scope.** They live under a
-  separate `/en-us/products/kids/` path not reachable from the approved
-  `electric-toothbrushes` listing's own product results, so they're
-  excluded the same way accessories are. (Philips Sonicare for Kids *is*
-  included, only because it happens to appear directly in the main
-  `/c-m-pe/electric-toothbrushes/latest` grid — not a deliberate inclusion
-  rule.)
-- **Section extraction is heading-driven, not visually-driven.** A long
-  run of page content with no intervening `<h1>`–`<h4>` (common on Oral-B
-  product pages, which often jump straight from the `<h1>` to a review/FAQ
-  widget) ends up as one large section rather than several finer-grained
-  ones. The full raw text is still preserved either way.
-- **No normalization of any kind.** Prices, specs, and claims are kept as
-  the literal text found on the page (e.g. Oral-B's price is stored as the
-  raw string `"$169.99"`, not a float). That's intentional — see Step 2.
 
 ### Step 1 repository layout
 
@@ -404,44 +375,6 @@ plants a pressure-sensor claim for a *different* product inside an
 excluded "You May Also Like" section and asserts it never reaches the
 current product's `pressure_sensing` attribute.
 
-### Price: structured channels only, never free text
-
-`price`/`currency`/`price_type` never scan page text at all — only
-`structured_data.json_ld[*].offers.price/priceCurrency` and (Oral-B
-only) `structured_data.price_text`. This matters concretely: Oral-B pages
-typically contain 8-17 distinct dollar amounts (bundle options, "Save
-$X" banners, and literal prices of *other* products pulled in from "You
-May Also Like"), and a free-text scan would regularly pick up the wrong
-one. One real quirk handled explicitly: Oral-B's JSON-LD encodes `price`
-as the **string** `"169.99"`, while Philips encodes it as the **number**
-`379.96` — both are accepted.
-
-When JSON-LD and `price_text` both exist and agree (true for all 24
-products today), JSON-LD's wording is preferred per the documented
-priority order (`structured product offer > static structured price >
-...`); when they genuinely disagree, `status` becomes `ambiguous`, both
-values are preserved as separate evidence records, and a `price_conflict`
-warning is logged — nothing is silently chosen. A bundle price appearing
-elsewhere on the same page (confirmed in the data: `"$169.99 $329.99 Save
-$160.00"` for a toothbrush+heads bundle) is never even a candidate,
-since it isn't one of the two structured channels for the *standalone*
-product.
-
-**A price is only `price_type = "listed"` when the offer is actually
-purchasable.** The JSON-LD `offers.availability` field is read alongside
-`price`: when it's `schema.org/OutOfStock`, `SoldOut`, or `Discontinued`,
-`price_type` becomes `"unavailable"` instead, and a `price_unavailable`
-warning is logged — but the `price` value itself is still preserved
-(it's real, last-known catalog information, just not one a visitor can
-currently act on). This was found by manually re-visiting
-`oralb_io-series-10`'s live URL after the fact: the page shows no
-purchasable price to a human visitor, yet its JSON-LD still carries
-`"price": "399.99"` next to `"availability":
-"https://schema.org/OutOfStock"` — a real e-commerce pattern (catalog
-price survives stock-outs) that the extractor originally ignored,
-silently presenting a stale price as if it were current. It's the only
-one of the 24 products currently affected.
-
 ### Philips extraction approach
 
 Philips pages carry a complete `schema.org/Product` JSON-LD block (used
@@ -454,13 +387,12 @@ a short feature-bullet row right after the `<h1>` that Step 1 captured
 with every line duplicated (a responsive mobile/desktop DOM artifact),
 de-duplicated here before being kept as a flat list.
 
-Per Phase 1 findings (confirmed empirically — the literal string
-`"in the box"` never appears anywhere in any of the 11 Philips
-`raw_text` fields; it only exists inside an i18n label dictionary
-embedded in a `<script>` tag, never hydrated into the static HTML Step 1
-captured), **`included_items` is `not_mentioned` for all 11 Philips
-products** — not because the extractor gives up, but because the
-content genuinely was never acquired. The same client-rendering gap
+The literal string `"in the box"` never appears in any of the 11
+Philips `raw_text` fields — it only exists inside an i18n label
+dictionary embedded in a `<script>` tag, never hydrated into the
+static HTML Step 1 captures. So `included_items` is `not_mentioned`
+for all 11 Philips products, not because the extractor gives up but
+because the content was never acquired. The same client-rendering gap
 means `mode_count`, `battery_life_days`, and `charging_method` are also
 `not_mentioned` for a majority of Philips products; the few mentions
 that do exist for those fields outside of this gap are frequently in
@@ -568,93 +500,6 @@ re-verified as a verbatim substring of its claimed raw source, and every
 evidence item's `source_url` matches the product it's attached to (the
 cross-product check).
 
-### Known limitations
-
-- **Philips `included_items`, and a majority of `mode_count`/
-  `battery_life_days`/`charging_method`, are `not_mentioned`** because
-  that content is client-rendered on Philips's site and was never part
-  of the static HTML Step 1 captured (see above) — this is a Step 1
-  acquisition-breadth limitation, not a Step 2 extraction gap, and
-  wasn't something Step 2 was asked to fix by re-scraping.
-- **The cross-product-comparison exclusion is intentionally blunt**: it
-  drops a small amount of genuinely safe content (like the Series-9-vs-10
-  mode-count confirmation) along with the unsafe content, because
-  reliably telling them apart by pattern alone isn't possible. The lost
-  facts are usually still available from `TextFeatureN`.
-- **`description` selection is a heuristic** ("first line that looks like
-  a real sentence, not a spec/feature tag") rather than a guaranteed
-  single best sentence. It's been tightened since launch (see "Post-
-  launch extraction corrections" below) to skip spec bullets, dimension
-  lines, and internal identifiers, but a thinly-FAQ'd product could in
-  principle still surface a serviceable-but-not-ideal line.
-- **`stated_absent` has no real example in the current 24 products** —
-  none of the acquired pages happen to explicitly say a feature is
-  absent. The code path is implemented and unit-tested against a
-  synthetic fixture, but is unexercised by the live dataset today.
-- **A secondary "RRP"/original-price element exists on 13 of 13 Oral-B
-  pages**, distinct from the extracted standalone price, and is
-  deliberately **not** auto-classified as a sale/original price (see
-  below) — surfaced only as a `secondary_price_signal_present` warning
-  for manual review, since inspection showed it's sometimes tied to a
-  different purchase option (bundle/subscription card) rather than a
-  clean "was/now" pair for the exact offer being priced.
-
-### Post-launch extraction corrections
-
-A later audit comparing the normalized CSV against the actual product
-pages found several systemic extraction bugs, all now fixed (with
-regression tests in `tests/test_extraction_corrections.py`, including
-real-data checks against the specific products below):
-
-- **FAQ questions were sometimes captured as their own answer.** A
-  heading like *"Does the Oral-B iO Series 10 charger display... a
-  brushing timer?"* contains the word "timer" in the question itself;
-  `timer_description` was picking up the question, not the answer that
-  followed it in `section["text"]`. Fixed via `utils.searchable_text()`:
-  a heading is only searched when it's a genuine declarative assertion
-  (e.g. Philips's *"Pressure Sensor helps protect your teeth and
-  gums"*), never when it's phrased as a question or is just the
-  product's own name/title.
-- **The product's own title was read as battery-life evidence.**
-  *"Philips One by Sonicare **Battery** Toothbrush"* is a product name,
-  not a runtime claim — the same `searchable_text()` fix (title headings
-  excluded from search) resolves this, plus an explicit
-  `BATTERY_INDICATOR_NOISE` exclusion for level-indicator/recharge-
-  reminder statements (*"tracks your battery level"*) that mention the
-  word "battery" without being about runtime at all.
-- **`included_items` relied too heavily on one structured field.**
-  Oral-B pages carry *two* parallel labeled attribute lists
-  (`TextFeatureN:` and `Shop By Feature:`); the second has items the
-  first doesn't (`"1 Brush"`, `"1 refill head"`, `"1 Magnetic Travel
-  Pouch"`). Both are now read, and bare accessory names with no leading
-  digit (`"Charging Station"`, `"iO Senser™ Smart Charger"`) are also
-  captured — scoped narrowly to these curated label:value pairs, never
-  to free prose (the page's own *"What's in the box"* heading turned out
-  to introduce marketing copy, not an itemized list — see
-  `oralb.py`'s module docstring).
-- **Claims were contaminated by glued tab labels.** Oral-B's template
-  repeats the same description under several tab panels (*"What's in
-  the box"*, *"Make the most of every session"*, *"Featured in"*,
-  *"Warranty Information"*), each rendered as a text node immediately
-  followed — with no separating punctuation — by that same sentence.
-  Known labels are now stripped, and a suffix-based dedup collapses any
-  remaining duplicate (keeping the shortest/cleanest variant) regardless
-  of which was found first.
-- **Intensity settings were being counted as brushing modes.** Philips's
-  *"2 intensity settings"* was feeding directly into `mode_count`;
-  `INTENSITY_COUNT_PATTERN` is tracked separately and never merged in.
-  Conversely, *"2 brush mode, 3 intensities"* / *"3 brush modes, 3
-  intensities"* were **not** matching at all (the pattern only accepted
-  "brushing"/"cleaning" as the infix, not "brush") — now fixed.
-- **A few false-positive claim markers.** Star-rating fragments
-  (*"86% recommend this product"*) and image-asset filenames (the
-  `-2x` "retina" suffix in `.../Base-2x.png`, read as a "2x better"
-  claim) were being captured as manufacturer claims; both are now
-  excluded.
-
-None of these fixes loosened the evidence/verbatim gates — every value
-above still has to pass the same mechanical substring check as before.
-
 ### Step 2 repository layout
 
 ```
@@ -686,18 +531,6 @@ evidence filter, and exhaustive/ambiguous/not-in-corpus query handling —
 below; 3c (full evaluation harness, Streamlit UI) is not implemented
 yet.
 
-### Setup
-
-```bash
-pip install -r requirements.txt   # adds rank-bm25, faiss-cpu, sentence-transformers, torch
-python scripts/build_rag_corpus.py   # Step 2 -> data/index/retrieval_documents.json
-python scripts/build_index.py        # embeds the corpus -> data/index/{faiss.index, metadata.json}
-```
-
-The embedding model (`sentence-transformers/all-MiniLM-L6-v2`, 384-dim,
-pinned in `src/rag/config.py`) downloads from the HuggingFace Hub on
-first use and is cached locally afterwards — no paid API.
-
 ### Architecture
 
 ```
@@ -715,15 +548,6 @@ evidence.json ──────────┬──┘         ↓ status/valu
                           hard evidence filter (domain/product/attribute)
 ```
 
-**Two independent corpora (3A.3)**, never conflated: the **product
-corpus** (`comparison_table.parquet`) is the only source of truth for
-`stated`/`not_mentioned`/`stated_absent`/`ambiguous` status — absence of
-a retrieval document is never read as `not_mentioned`, since
-list-valued attributes genuinely have zero or many documents regardless
-of status. The **evidence corpus** (`evidence.json`) is only for
-lexical/semantic retrieval and citations. Every retrieval document
-carries its full provenance chain (`document_id -> evidence_id ->
-product_id/attribute/source_url`) — see `src/rag/models.py:RetrievalDocument`.
 
 ### Product recognition (3A.8/14/15)
 
@@ -745,15 +569,34 @@ would outscore a short but unique "iO Series 10" match. Outcomes:
 - a query naming a specific, unrecognized model number or a known
   competitor brand -> **not_in_corpus**, refused rather than substituted.
 
-### Attribute mapping (3A.9) and exhaustive queries (3A.13)
+### Attribute and intent classification, and exhaustive queries
 
-`src/rag/query_understanding.py:ATTRIBUTE_PATTERNS` maps natural-language
-phrasing ("pressing too hard", "connect to my phone", "what comes in the
-box") to real Step 2 attribute names only — checked by a test that every
-key is a genuine `ATTRIBUTE_FIELDS` column. "Which products have
-`<attribute>`?" bypasses top-k retrieval entirely (`src/rag/exhaustive.py`):
-it scans the full product corpus and returns every true match with its
-own evidence, because a top-k ranking can never guarantee completeness.
+Attribute mapping and intent classification (which attribute a question
+is about, and whether it's an exhaustive/comparison/normal question)
+are LLM-first via `query_understanding.classify_query()`: one call
+returns both as JSON, because they're open-vocabulary paraphrase
+problems — "how long do the heads last" and "replacement interval"
+mean the same thing, and a regex list can't anticipate every phrasing.
+Product matching stays plain regex over the closed catalog above; an
+LLM buys nothing for exact model-name lookup.
+
+`classify_query` falls back to the original regex rules
+(`_detect_attributes_deterministic`, `_classify_intent_deterministic`)
+whenever the LLM is unavailable or fails, or when the caller passes
+`use_llm=False` (the `--no-llm` path). `ATTRIBUTE_PATTERNS` (used by
+both the LLM prompt's attribute list and the regex fallback) maps
+natural-language phrasing to real Step 2 attribute names only — checked
+by a test that every key is a genuine `ATTRIBUTE_FIELDS` column, and
+the LLM path drops any attribute name it returns that isn't in that
+list. `detect_attributes()`/`classify_intent()` remain as thin
+single-value wrappers around `classify_query()` for callers/tests that
+only need one of the two; a caller needing both should call
+`classify_query()` directly rather than pay for two LLM calls.
+
+"Which products have `<attribute>`?" bypasses top-k retrieval entirely
+(`src/rag/exhaustive.py`): it scans the full product corpus and returns
+every true match with its own evidence, because a top-k ranking can
+never guarantee completeness.
 
 ### Hybrid scoring, reranking, evidence filtering
 
@@ -793,8 +636,7 @@ python -m src.rag.retrieve --query "Which products detect excessive brushing pre
 reports the BM25-only / semantic-only / hybrid / hybrid+reranked
 ablation (Recall@5/10), plus behavioral checks (exhaustive completeness,
 not-in-corpus refusal, ambiguous clarification, prompt-injection
-resistance). See the 3A checkpoint report (delivered separately) for
-current numbers.
+resistance).
 
 ### Known limitations (3a)
 
@@ -816,76 +658,78 @@ Step 3b sits directly on top of 3a's retrieval layer and turns a
 modified to build this — it's used exactly as-is.
 
 ```bash
-cp .env.example .env   # fill in a real OPENAI_API_KEY; .env is gitignored, never committed
 python -m src.rag.pipeline --query "What is the price of the Sonicare 4100?"
 python -m src.rag.pipeline --query "Compare the iO Series 9 and Sonicare 4100 on modes" --debug
-python -m src.rag.pipeline --query "..." --no-llm   # force the deterministic fallback
 ```
 
-`.env` (gitignored, confirmed via `git check-ignore .env`; never tracked)
-is loaded automatically by `src/rag/llm_provider.py` via `python-dotenv`,
-`load_dotenv(override=False)` — a real environment variable always wins
-over `.env`, which only fills gaps. `.env.example` documents the shape
-with placeholders only.
 
-### LLM provider (3B.2) and the no-key fallback (3B.3)
+### LLM provider and the no-key fallback
 
 A single pinned provider/model/temperature, configured only from
-environment variables (`src/rag/llm_provider.py`) — never chosen
+environment variables (`src/rag/llm_provider.py`), never chosen
 dynamically at runtime:
 
 | | |
 |---|---|
 | Provider | `openai` (`LLM_PROVIDER`, default `openai`) |
-| Model | `gpt-4.1-mini` (`LLM_MODEL`, pinned default — see note below) |
-| Temperature | `0` (not configurable — pinned in code) |
+| Model | `gpt-4o-mini` (`LLM_MODEL`) |
+| Temperature | `0` (pinned in code) |
 | API key | `OPENAI_API_KEY` |
 
-**Model note:** the spec originally pinned `gpt-5.6-mini`. A real API
-call against a live key during 3B checkpoint validation returned
-`404 model_not_found` — no such model (or any `-mini` variant of
-`gpt-5.6`) exists on this account. The available models were listed
-(read-only, diagnostic) and `gpt-4.1-mini` was selected and approved by
-the user before repinning `DEFAULT_MODEL`. Still a single pinned
-identifier, never chosen dynamically at runtime.
-
-With no key configured, every query path still answers in full:
+With no key configured, every query path still answers in full.
 `OpenAIStructuredClient.generate_json` raises `LLMUnavailable`, and
-`generation.py` falls back to building segments directly from
-already-normalized Step 2 values, resolved status
-(`src/rag/attribute_status.py`), and the deterministic comparison
-engine — never leaving a gap. The answer always says so explicitly,
-e.g. `"Deterministic mode requested (--no-llm); returned deterministic
-grounded response."` or the equivalent message when a real key is
-configured but the call itself fails (network error, malformed JSON,
-etc. — every LLM failure mode degrades to the same fallback, never a
-crash). **The automated test suite always runs with no key reachable**
-regardless of a local `.env` — `tests/conftest.py` has an autouse
-fixture that deletes `OPENAI_API_KEY` from the environment for every
-test (found necessary during this session: without it, a test that
-called `answer_query()` without `--no-llm` or a fake client silently
-made a real, billed API call whenever `.env` was present locally).
+callers fall back to a deterministic path: `generation.py` builds
+segments from already-normalized Step 2 values, resolved status
+(`src/rag/attribute_status.py`), and the comparison engine;
+`query_understanding.classify_query` falls back to its regex rules
+(see below). The answer always says so explicitly, e.g.
+`"Deterministic mode requested (--no-llm); returned deterministic
+grounded response."`, or the equivalent message when a key is
+configured but the call itself fails (network error, malformed JSON —
+every failure mode degrades to the same fallback, never a crash).
+The automated test suite always runs with no key reachable regardless
+of a local `.env`: `tests/conftest.py` has an autouse fixture that
+deletes `OPENAI_API_KEY` from the environment for every test, so a
+test can't accidentally make a real, billed call just because `.env`
+happens to be populated locally.
 
 ### Real-API validation (`scripts/verify_llm.py`)
 
-A one-time, manually-run script (never part of pytest/CI, never makes
-a call unless run directly) that validates the LLM path against the
-**live** OpenAI API: pinned config, one minimal structured-JSON call
-(auth + model + response format), five end-to-end queries through
+A manually-run script, never part of pytest/CI, that exercises the LLM
+path against the live OpenAI API: a minimal structured-JSON call (auth
++ model + response format), several end-to-end queries through
 `answer_query()` with the real client, and the fake-client rejection
-test. Confirmed: authentication works; `gpt-4.1-mini` accepts
-`temperature=0` and `response_format={"type": "json_object"}`
-unmodified; the exhaustive pressure-sensing query's LLM output cited
-all 19/19 expected products on the first try (3B.9's fallback guard
-never had to trigger); the comparison query never invoked the LLM at
-all (`call_count` unchanged); the user-injection query produced no
-fabricated claim. Token usage and latency are logged per call via
-`OpenAIStructuredClient.last_usage`/`last_latency_seconds` (introspection
-only, never affects the request). Run it yourself:
+test. Token usage and latency are logged per call via
+`OpenAIStructuredClient.last_usage`/`last_latency_seconds` for
+introspection only. Run it yourself:
 
 ```bash
 python scripts/verify_llm.py
 ```
+
+### Cost and latency
+
+`OpenAIStructuredClient.last_usage`/`last_latency_seconds` (set on every
+call, see above) aren't only a manual-script introspection tool — the
+application evaluation category reuses them. `answer_query()`'s
+`llm_client` persists across every case in a `--live` evaluation run,
+and `src/evaluation/runner.py` records `last_usage`/`last_latency_seconds`
+for any case that made a new real call. `application_eval.py` aggregates
+this into `operational` (cases with a real call, mean latency, total
+prompt/completion/total tokens), and `report.py` renders it as an
+"Operational (latency / tokens)" section in the generated
+`application.md` report — the only category this is wired up for.
+
+A representative live run: 9/16 cases made a real generation call, mean
+latency 2.27s, 17,095 tokens total (16,169 prompt / 926 completion). This
+undercounts true per-query cost: the separate `classify_query()` LLM call
+used for attribute/intent detection (`query_understanding.py`) resolves
+its own `OpenAIStructuredClient` inside `retrieve()` rather than reusing
+the metered generation client, so its usage isn't captured here. Token
+counts are reported as-is, not converted to a dollar figure — no pricing
+table is maintained in the repo. See `report.md`'s Cost & latency section
+for the numbers and optimization notes (prompt-size reduction, response
+caching — neither implemented yet).
 
 ### Deterministic comparison engine (3B.1)
 
@@ -899,30 +743,53 @@ When either side isn't cleanly `stated` with a non-null value, the
 engine falls back to concatenating both sides' status-aware statements
 rather than guessing or omitting the gap.
 
-### Structured output and citation validation (3B.5/3B.6)
+A comparison that names one real product and one that isn't in the
+corpus is refused explicitly rather than silently answered as if about
+one product: `detect_comparison_not_in_corpus()` in
+`query_understanding.py` checks each comparison segment independently,
+so "compare the iO Series 9 and the FooBrush 3000" says it only has
+information about the iO Series 9 rather than quietly dropping the
+second product. A comparison with nothing specific named at all (e.g.
+"compare these") still falls through to normal retrieval.
 
-The LLM — when available — is given evidence as numbered handles (`E1`,
+The generation prompt also asks for natural, flowing prose rather than
+one segment per isolated fact: closely related facts (e.g. everything
+in the box) are grouped into a single sentence/segment, with multiple
+citation handles on that segment when it states more than one fact. A
+new segment is for a genuinely new topic, not for every fact. A
+specific question about something the evidence doesn't contain (a
+named clinical study, a sample size) gets an explicit "the page
+doesn't state this" as the first segment, rather than a generic
+disclaimer that looks like it's answering the question.
+
+### Structured output and citation validation
+
+The LLM, when available, is given evidence as numbered handles (`E1`,
 `E2`, ...) and must return `{"segments": [{"text": "...", "citation_ids":
 ["E1"]}]}`; it never emits `[S1]`-style markers itself. `src/rag/citations.py`
-then validates every LLM-authored segment: every citation id must
-resolve, belong to an expected product/attribute, any product named in
-the segment's own text must match what it cited, and every number in
-the text must be verbatim-backed by a cited evidence string. Digits
-that are part of a cited product's own name (e.g. "Sonicare 4100") are
-matched by digit-token, not full-string containment, against every
-cited product's name — found necessary via a real LLM call during 3B
-checkpoint validation, which naturally abbreviated "Sonicare Prestige
-9900 Rechargeable Toothbrush" to "Sonicare Prestige 9900"; a literal
-full-name substring check missed this paraphrase and wrongly rejected
-a fully correct, well-cited answer. A segment failing any check is
-dropped entirely, never silently trimmed. Deterministically generated segments (status templates,
-comparison summaries) carry `trusted=True` and skip these checks — they
-are correct by construction, and some (a `not_mentioned` disclosure, a
-computed difference) are legitimately uncitable or non-verbatim by
-design. `[S1]`/`[S2]` markers and the `Sources` section
-(`render_sources_section`) are assigned afterward, in order of first
-appearance among valid segments only; URLs always come from evidence
-metadata, never from the LLM.
+validates every LLM-authored segment: every citation id must resolve,
+belong to an expected product/attribute, any product named in the
+segment's own text must match what it cited, and every number in the
+text must be verbatim-backed by a cited evidence string. Digits that
+are part of a cited product's own name (e.g. "Sonicare 4100") are
+matched by digit-token, not full-string containment, against the
+product's name — a plain substring check would reject a correct answer
+that abbreviates "Sonicare Prestige 9900 Rechargeable Toothbrush" to
+"Sonicare Prestige 9900". A segment failing any check is dropped
+entirely, never silently trimmed. Deterministically generated segments
+(status templates, comparison summaries) carry `trusted=True` and skip
+these checks — they're correct by construction, and some (a
+`not_mentioned` disclosure, a computed difference) are legitimately
+uncitable or non-verbatim by design.
+
+`[S1]`/`[S2]` markers and the Sources section are assigned afterward,
+in order of first appearance among valid segments only; URLs always
+come from evidence metadata, never the LLM. `src/rag/citations.py`'s
+`source_entries()` builds the canonical list of `SourceEntry` records
+(marker, product name, section, quote, url) that both
+`render_sources_section()` (the markdown block used by the CLI) and
+`AnswerResult.sources` (consumed directly by app.py's UI, see below)
+are derived from — one source of truth either way.
 
 ### Exhaustive answers (3B.9)
 
@@ -1006,13 +873,12 @@ guardrails; end-to-end generation against the real Step 2 corpus
 including LLM-partial-answer rejection, comparison never calling the
 LLM, prompt-injection posture, out-of-scope refusal); and the CLI.
 
-## Run the Application (Step 3c.2)
+## Run the Application
 
 Both the CLI and the Streamlit UI call the exact same, unmodified
-`answer_query()` pipeline (`src/rag/generation.py`) -- same grounding,
+`answer_query()` pipeline (`src/rag/generation.py`) — same grounding,
 citation validation, deterministic comparisons, status-aware phrasing,
-and scope/safety refusals either way. Nothing in this section changes
-how a question is answered; it only adds a way to ask one.
+and scope/safety refusals either way.
 
 ### 1. Environment setup
 
@@ -1028,10 +894,11 @@ cp .env.example .env   # then fill in a real OPENAI_API_KEY
 ```
 
 `.env` is gitignored and never committed (`.env.example` holds
-placeholders only). **A key is optional** -- with none configured,
-every question still gets a fully grounded answer via the deterministic
-fallback (3B.3); the only difference is that the LLM is not used to
-verbalize evidence into prose, and the app says so explicitly.
+placeholders only). A key is optional — with none configured, every
+question still gets a fully grounded answer via the deterministic
+fallback; the only difference is that the LLM isn't used to verbalize
+evidence into prose or classify the query, and the app says so
+explicitly.
 
 ### 3. Run the CLI
 
@@ -1050,23 +917,31 @@ streamlit run app.py
 The first question asked in a given server process takes a few extra
 seconds while the embedding model and retrieval index load; every
 question after that reuses the same cached engine and LLM client
-(`src/app/engine.py` -- `st.cache_resource`), so the model is never
-reloaded per interaction.
+(`src/app/engine.py` — `st.cache_resource`).
+
+The UI is a persistent chat (`st.chat_input`, history kept in
+`st.session_state.messages`), laid out wide with a chat column next to
+a Sources panel. Citation markers in an answer are clickable buttons —
+clicking one shows that answer's sources in the side panel, including
+the exact quoted text and a link to the source page. A "Debug /
+Retrieval details" expander below the chat shows the last answer's
+intent, product match, detected attributes, and each segment's
+citation validity. `app.py:_render_assistant_message` and
+`_render_sources_panel` are the only two render paths, shared between
+the chat-history replay and a freshly-answered question, so a new
+answer looks identical whether it's rendered immediately or after a
+rerun from history.
 
 ### 5. What to expect
 
-- A grounded answer with a `Sources` section listing the exact
-  official product page(s) the answer came from.
+- A grounded answer with inline `[S1]`/`[S2]` citation markers, each
+  linking to the exact official product page it came from.
 - Out-of-scope requests (a third-party retailer, a non-US page), a
   product not in the corpus, an ambiguous product name, and
-  medical/dental-advice questions are all refused or redirected with a
-  clear explanation instead of a fabricated answer -- the same
-  behavior already verified by the 3C.1 evaluation harness
-  (`data/evaluation/evaluation_report.md`).
-- An optional "Debug / Retrieval Details" panel shows which intent/
-  product/attributes were detected and each segment's citation
-  validity -- never raw prompts or hidden reasoning, and never the API
-  key.
+  medical/dental-advice questions are refused or redirected with a
+  clear explanation instead of a fabricated answer.
+- The Debug/Retrieval-details expander never shows raw prompts, hidden
+  reasoning, or the API key.
 
 ### 6. Scope reminder
 

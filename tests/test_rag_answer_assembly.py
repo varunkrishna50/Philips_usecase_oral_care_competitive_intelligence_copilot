@@ -158,22 +158,22 @@ def test_directness_orders_own_then_detail_then_other():
 
 def test_topic_pure_details_are_all_kept_and_mixed_ones_are_limited():
     pure = [_doc("p1", "Haptic feedback.", "pressure_sensing_details"), _doc("p2", "It vibrates.", "pressure_sensing_details")]
-    assert len(limit_related(pure, "What pressure feature does it have?", scores={})) == 2
+    assert len(limit_related(pure, set(), scores={})) == 2
     mixed = [_doc("m1", "Charging takes 3 hours.", "battery_details"), _doc("m2", "Travel case included.", "battery_details"),
              _doc("m3", "Display shows battery.", "battery_details")]
-    kept = limit_related(mixed, "What is the battery life?", scores={"m1": 0.87, "m2": 0.74, "m3": 0.75, "top": 0.94})
+    kept = limit_related(mixed, set(), scores={"m1": 0.87, "m2": 0.74, "m3": 0.75, "top": 0.94})
     assert kept == []  # none within 95% of the best hit
 
 
 def test_a_mixed_record_close_to_the_best_hit_is_kept_but_only_one():
     mixed = [_doc("m1", "Up to 14 days of use.", "battery_details"), _doc("m2", "Indicator.", "battery_details")]
-    kept = limit_related(mixed, "What is the battery life?", scores={"m1": 0.97, "m2": 0.96, "top": 0.98})
+    kept = limit_related(mixed, set(), scores={"m1": 0.97, "m2": 0.96, "top": 0.98})
     assert [d.evidence_id for d in kept] == ["m1"]
 
 
 def test_a_mixed_record_the_question_names_is_kept():
     mixed = [_doc("c1", "Charging takes 3 hours.", "charging_details")]
-    kept = limit_related(mixed, "Tell me the charging details of this brush.", scores={})
+    kept = limit_related(mixed, {"charging_details"}, scores={})
     assert [d.evidence_id for d in kept] == ["c1"]
 
 

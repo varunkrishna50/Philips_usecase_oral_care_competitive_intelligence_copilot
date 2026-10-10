@@ -4,11 +4,11 @@ pipeline, in either offline (deterministic, no API key) or live (real
 LLM + real DeepEval judge) mode.
 
 One shared golden dataset (golden_dataset.py, built once from
-test_cases.json + the independent GoldCorpus) and one shared set of
-real `answer_query()` results feed all 4 categories -- generation is
-never re-run per category. `--category` lets any subset run on its
-own; a category not requested is simply absent from the report (and
-its quality gates are skipped, not failed -- see quality_gates.py).
+test_cases.json's own hand-authored fields) and one shared set of real
+`answer_query()` results feed all 4 categories -- generation is never
+re-run per category. `--category` lets any subset run on its own; a
+category not requested is simply absent from the report (and its
+quality gates are skipped, not failed -- see quality_gates.py).
 """
 from __future__ import annotations
 
@@ -23,7 +23,6 @@ from src.rag.llm_provider import LLMConfig, OpenAIStructuredClient
 from src.rag.retrieve import RetrievalEngine
 
 from . import application_eval, generator_eval, pipeline_eval, retriever_eval
-from .gold_labels import load_gold_corpus
 from .golden_dataset import build_golden_dataset
 from .judge import judge_model
 from .quality_gates import QualityGates, evaluate_gates
@@ -60,9 +59,8 @@ def run_deepeval_suite(
         raise ValueError(f"unknown eval categories: {sorted(unknown)}")
 
     suite = load_test_suite(test_cases_path)
-    corpus = load_gold_corpus()
     engine = RetrievalEngine.build()
-    goldens = build_golden_dataset(suite.cases, corpus)
+    goldens = build_golden_dataset(suite.cases)
 
     llm_client = OpenAIStructuredClient() if mode == "live" else None
     config = LLMConfig.from_env()
@@ -88,7 +86,7 @@ def run_deepeval_suite(
         "mode": mode,
         "judge_model": judge_model(),
         "categories_run": categories,
-        "corpus": {"product_count": len(corpus.products), "evidence_count": len(corpus.evidence), **corpus_fingerprint()},
+        "corpus": {"product_count": len(engine.product_corpus), "evidence_count": len(engine.retrieval_documents), **corpus_fingerprint()},
         "model_configuration": {
             "provider": config.provider, "model": config.model, "temperature": config.temperature,
             "api_key_configured": config.available if mode == "live" else None,
@@ -103,7 +101,7 @@ def run_deepeval_suite(
         report["pipeline"] = pipeline_eval.run(goldens, answers, mode)
     if "application" in categories:
         report["application"] = application_eval.run(
-            goldens, answers, engine, corpus, evidence_by_id, mode, usage_by_id, latency_by_id,
+            goldens, answers, engine, evidence_by_id, mode, usage_by_id, latency_by_id,
         )
 
     gates = QualityGates.load(gates_path) if gates_path else QualityGates.load()

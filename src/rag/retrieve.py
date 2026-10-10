@@ -5,7 +5,10 @@
 Ties together: query understanding -> ambiguous/not-in-corpus short
 circuits -> exhaustive-query path -> comparison path -> standard hybrid
 retrieval (BM25 + semantic over the FULL corpus) -> rerank -> hard
-evidence filter. No LLM anywhere in this module.
+evidence filter. Product matching stays deterministic (closed catalog);
+attribute/intent classification is LLM-first via
+query_understanding.classify_query(), with a deterministic regex
+fallback when the LLM is unavailable -- see that module for why.
 """
 from __future__ import annotations
 
@@ -22,11 +25,12 @@ from .embedding_index import EmbeddingIndex
 from .attribute_status import expand_attributes
 from .evidence_filter import FilterResult, filter_evidence
 from .exhaustive import ExhaustiveMatch, exhaustive_query
+from .llm_provider import OpenAIStructuredClient
 from .models import ProductRecord, RetrievalDocument, ScoredDocument
 from .query_understanding import (
     ProductMatch,
-    classify_intent,
-    detect_attributes,
+    classify_query,
+    detect_comparison_not_in_corpus,
     detect_comparison_products,
     detect_exhaustive_condition_value,
     detect_products,
@@ -138,10 +142,11 @@ class RetrievalEngine:
         query: str,
         top_k: int = DEFAULT_TOP_K,
         alpha: float = DEFAULT_ALPHA,
+        llm_client: Optional[OpenAIStructuredClient] = None,
+        no_llm: bool = False,
     ) -> RetrievalResult:
         product_match = detect_products(query, self.product_corpus)
-        attributes = detect_attributes(query)
-        intent = classify_intent(query, product_match)
+        attributes, intent = classify_query(query, llm_client, use_llm=not no_llm)
 
         result = RetrievalResult(query=query, intent=intent, product_match=product_match, attributes=attributes)
 
@@ -196,7 +201,27 @@ class RetrievalEngine:
                 result.comparison_results = comparison_results
                 result.results = [doc for docs in comparison_results.values() for doc in docs]
                 return result
-            # Fewer than 2 products resolved -- fall through to normal retrieval.
+            # Fewer than 2 products resolved. If one of the named products is confirmed absent
+            # from the corpus, say so (3A.15) instead of silently answering about only the other
+            # one as if a one-sided "comparison" were a complete response -- only when nothing
+            # concrete was identified as missing (e.g. a vague "compare these") does this fall
+            # through to normal retrieval below.
+            if detect_comparison_not_in_corpus(query, self.product_corpus):
+                result.not_in_corpus = True
+                if comparison_matches:
+                    # At least one of the named products WAS found -- say so explicitly, so the
+                    # refusal doesn't read as if neither product exists (the plain
+                    # NOT_IN_CORPUS_MESSAGE below is written for the "nothing matched at all"
+                    # case and is misleading here).
+                    found_names = ", ".join(sorted({m.candidates[0].product_name for m in comparison_matches}))
+                    result.not_in_corpus_message = (
+                        f"I have information about {found_names}, but not about the other product "
+                        f"named in this comparison, so I can't complete it. "
+                        f"{_available_products_suffix(self.product_corpus)}"
+                    )
+                else:
+                    result.not_in_corpus_message = f"{NOT_IN_CORPUS_MESSAGE} {_available_products_suffix(self.product_corpus)}"
+                return result
 
         accepted, rejected, bm25_c, sem_c, hybrid_r = self._hybrid_rerank_filter(
             query, product_match, attributes, top_k, alpha

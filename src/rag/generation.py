@@ -33,11 +33,13 @@ from .attribute_status import (
 from .citations import (
     display_section,
     Segment,
+    SourceEntry,
     ValidatedSegment,
     assign_markers,
     render_answer_text,
     render_comparison_table,
     render_sources_section,
+    source_entries,
     validate_segments,
 )
 from .comparison_engine import BOOLEAN_ATTRIBUTES, NUMERIC_ATTRIBUTES, build_comparison_row, compare_attribute
@@ -76,6 +78,10 @@ class AnswerResult:
     # only place that decides markers/grouping; this just exposes the
     # mapping it already computes.
     citation_urls: dict[str, str] = field(default_factory=dict)
+    # The same data sources_text is rendered from, structured -- for a
+    # presentation layer (e.g. app.py's side panel) that wants to build
+    # its own cards instead of parsing sources_text's markdown back apart.
+    sources: list[SourceEntry] = field(default_factory=list)
 
 
 
@@ -177,11 +183,31 @@ def _build_system_prompt() -> str:
         "Never state a fact, number, or product name that is not "
         "directly supported by a cited evidence item.\n\n"
 
-        "Answer fully but concisely: lead with the direct answer, "
+        "If the question asks for something specific the evidence does "
+        "not contain -- for example a named clinical study, a sample "
+        "size, a methodology, a publication, or a date -- your FIRST "
+        "segment must directly say the page does not state that (for "
+        "example: \"The page does not specify a clinical study or "
+        "sample size for this claim.\"). Then in a separate sentence mention what is present in the evidence. A disclaimer that only gives a "
+        "comparison basis (e.g. \"vs. a manual toothbrush\", \"in 6 "
+        "weeks\") is not evidence of a named study or sample size.\n\n"
+
+        "Answer fully but concisely, in natural, flowing sentences -- "
+        "the way a product page would talk to a customer, never as a "
+        "list of isolated one-fact lines; lead with the direct answer, "
         "then give the specifics the evidence states (how the feature "
         "works, numbers, mode or item names, the page's own wording), "
-        "one segment per fact, each citing the handle(s) that support "
-        "it. If the only evidence is a bare label (for example just "
+        "grouping closely related facts into the same sentence or "
+        "segment (for example, everything that comes in the box reads "
+        "as one sentence, not one sentence per item) rather than "
+        "giving every individual fact its own separate segment. Still "
+        "cite every handle that supports what a segment states -- a "
+        "segment may carry more than one citation when it states more "
+        "than one fact. Create a new segment for a genuinely new "
+        "paragraph/topic, not for every fact. If a specific request "
+        "below asks for a different structure (for example, listing "
+        "every matching product separately), follow that instead. If "
+        "the only evidence is a bare label (for example just "
         "the feature name), say that this is all the page states. "
         "Quote numbers, percentages and claim wording exactly as the "
         "evidence has them -- never round, convert or rephrase a "
@@ -337,7 +363,13 @@ def answer_query(
     if medical_advice_message:
         return AnswerResult(query, medical_advice_message, "")
 
-    retrieval_result = engine.retrieve(query, top_k=top_k, alpha=alpha)
+    # Deliberately NOT forwarding `llm_client` here: it's the fake/real client the caller wants
+    # used for ANSWER generation below, which speaks a different JSON shape than query
+    # classification does -- retrieve() resolves its own client from env for that (same
+    # provider/model/key in production; LLMUnavailable there still correctly falls back to the
+    # deterministic classifier). `no_llm` DOES forward, so --no-llm is honored end to end, not
+    # just for generation.
+    retrieval_result = engine.retrieve(query, top_k=top_k, alpha=alpha, no_llm=no_llm)
     evidence_by_id = {d.evidence_id: d for d in engine.retrieval_documents}
 
     if retrieval_result.clarification_needed:
@@ -366,7 +398,7 @@ def _finish(
     return AnswerResult(
         query=query, answer_text=answer_text, sources_text=sources_text, segments=validated,
         used_llm=used_llm, llm_unavailable_reason=reason, retrieval_result=retrieval_result,
-        citation_urls=citation_urls,
+        citation_urls=citation_urls, sources=source_entries(marker_by_id, evidence_by_id),
     )
 
 
@@ -389,7 +421,7 @@ def _answer_normal(
             attr_status = resolve_attribute_status(product, attribute, engine.retrieval_documents)
             if attr_status.status == "stated" and attr_status.value is not None:
                 # the detail records that answer the question (how it works, numbers, names) first, then the bare label
-                related = limit_related(related_evidence(product, attribute, engine.retrieval_documents), query, scores)
+                related = limit_related(related_evidence(product, attribute, engine.retrieval_documents), set(asked), scores)
                 for doc in related + attr_status.evidence:
                     if doc not in citable_evidence:
                         citable_evidence.append(doc)
@@ -423,8 +455,10 @@ def _answer_normal(
             reason = "Deterministic mode requested (--no-llm); returned deterministic grounded response."
         else:
             llm_segments, failure = _call_llm_for_segments(
-                "Answer the user's question using the evidence below. Create one segment per distinct fact, "
-                "each citing the evidence handle(s) that support it.",
+                "Answer the user's question using the evidence below, in natural flowing prose. "
+                "Group closely related facts into the same sentence rather than giving each fact "
+                "its own separate sentence or segment, and cite every handle that supports what a "
+                "segment states.",
                 query, citable_evidence, llm_client,
             )
             if failure:
@@ -525,7 +559,7 @@ def _answer_comparison(
     return AnswerResult(
         query=query, answer_text=answer_text, sources_text=sources_text, segments=validated_summary,
         used_llm=used_llm, llm_unavailable_reason=reason, retrieval_result=retrieval_result,
-        citation_urls=citation_urls,
+        citation_urls=citation_urls, sources=source_entries(marker_by_id, evidence_by_id),
     )
 
 

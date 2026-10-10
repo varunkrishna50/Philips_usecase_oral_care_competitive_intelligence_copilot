@@ -1,16 +1,24 @@
-"""3C.9: deterministic comparison evaluation. Gold comparisons are
-computed independently from gold_labels.py (parquet-derived), never
-from the LLM and never by re-running src.rag.comparison_engine --
-the pipeline's own ComparisonResult is then checked AGAINST this
-independently-computed gold value, so an arithmetic bug shared by both
-sides can't cancel out.
+"""3C.9: deterministic comparison evaluation. Gold comparisons are read
+straight from the real, already-loaded product catalog (ProductRecord's
+own `attributes` dict) -- the pipeline's own ComparisonResult is then
+checked against these values, so a wrong-sign or off-by-one bug in
+compare_attribute's diff/boolean logic still gets caught.
+
+This reads a null attribute value as simply "not comparable", with no
+separate not_mentioned/stated_absent/ambiguous distinction -- that
+distinction needed the independent evidence.json reader this module no
+longer uses (dropped at the user's request, see golden_dataset.py). It
+is not a real loss here: of the four Step 2 statuses, "stated_absent"
+and "ambiguous" have zero real occurrences in this corpus (confirmed by
+direct inspection when the independent reader still existed), so a null
+value in the catalog has only ever actually meant not_mentioned.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .gold_labels import GoldCorpus
+from src.rag.models import ProductRecord
 
 NUMERIC_ATTRIBUTES = {"price", "mode_count", "battery_life_days"}
 BOOLEAN_ATTRIBUTES = {"pressure_sensing", "app_connectivity", "bluetooth_connectivity", "timer"}
@@ -19,8 +27,6 @@ BOOLEAN_ATTRIBUTES = {"pressure_sensing", "app_connectivity", "bluetooth_connect
 @dataclass
 class GoldComparison:
     attribute: str
-    status_a: str
-    status_b: str
     value_a: Any
     value_b: Any
     comparable: bool
@@ -29,21 +35,25 @@ class GoldComparison:
     b_true: Optional[bool] = None
 
 
-def compute_gold_comparison(corpus: GoldCorpus, product_a_id: str, product_b_id: str, attribute: str) -> GoldComparison:
-    status_a, value_a, _ = corpus.resolve_status(product_a_id, attribute)
-    status_b, value_b, _ = corpus.resolve_status(product_b_id, attribute)
+def _find_product(product_corpus: list[ProductRecord], product_id: str) -> Optional[ProductRecord]:
+    return next((p for p in product_corpus if p.product_id == product_id), None)
 
-    if (attribute in NUMERIC_ATTRIBUTES and status_a == "stated" and status_b == "stated"
-            and value_a is not None and value_b is not None):
-        return GoldComparison(attribute, status_a, status_b, value_a, value_b, True, diff=abs(value_a - value_b))
 
-    if (attribute in BOOLEAN_ATTRIBUTES and status_a in ("stated", "stated_absent")
-            and status_b in ("stated", "stated_absent")):
-        a_true = status_a == "stated" and value_a is True
-        b_true = status_b == "stated" and value_b is True
-        return GoldComparison(attribute, status_a, status_b, value_a, value_b, True, a_true=a_true, b_true=b_true)
+def compute_gold_comparison(
+    product_corpus: list[ProductRecord], product_a_id: str, product_b_id: str, attribute: str,
+) -> GoldComparison:
+    product_a = _find_product(product_corpus, product_a_id)
+    product_b = _find_product(product_corpus, product_b_id)
+    value_a = product_a.get(attribute) if product_a else None
+    value_b = product_b.get(attribute) if product_b else None
 
-    return GoldComparison(attribute, status_a, status_b, value_a, value_b, comparable=False)
+    if attribute in NUMERIC_ATTRIBUTES and value_a is not None and value_b is not None:
+        return GoldComparison(attribute, value_a, value_b, True, diff=abs(value_a - value_b))
+
+    if attribute in BOOLEAN_ATTRIBUTES and value_a is not None and value_b is not None:
+        return GoldComparison(attribute, value_a, value_b, True, a_true=bool(value_a), b_true=bool(value_b))
+
+    return GoldComparison(attribute, value_a, value_b, comparable=False)
 
 
 @dataclass

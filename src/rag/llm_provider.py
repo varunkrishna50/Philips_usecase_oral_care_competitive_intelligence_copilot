@@ -29,14 +29,7 @@ from dotenv import load_dotenv
 load_dotenv(override=False)
 
 DEFAULT_PROVIDER = "openai"
-# The spec's originally-pinned "gpt-5.6-mini" returned a live 404
-# model_not_found against this account (confirmed via a real API call
-# during 3B checkpoint validation -- no such model, or "-mini" variant
-# of gpt-5.6, exists on this key). Repinned to gpt-4.1-mini per explicit
-# user approval after reviewing this key's actual available models.
-# Still a single pinned identifier, never chosen dynamically; override
-# via LLM_MODEL without touching code if it needs to change again.
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-4o-mini"
 TEMPERATURE = 0
 
 

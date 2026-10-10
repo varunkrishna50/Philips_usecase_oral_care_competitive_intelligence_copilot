@@ -19,7 +19,6 @@ from typing import Iterable, Optional
 from .attribute_status import RELATED_ATTRIBUTES
 from .citations import Segment, ValidatedSegment, _figures
 from .models import RetrievalDocument
-from .query_understanding import detect_attributes
 
 MAX_CITATIONS_PER_SEGMENT = 2
 # A "mixed" related record is kept only if its retrieval score is at least this fraction of the best hit
@@ -108,12 +107,16 @@ def prepare_evidence(
 
 def limit_related(
     related: list[RetrievalDocument],
-    query: str,
+    named_attrs: set[str],
     scores: dict[str, float],
     min_ratio: float = RELATED_MIN_SCORE_RATIO,
     max_unnamed: int = MAX_UNNAMED_RELATED,
 ) -> list[RetrievalDocument]:
-    """Related detail records worth showing for ``query``.
+    """Related detail records worth showing, given ``named_attrs`` (the
+    attributes the query was already classified as asking about --
+    retrieval_result.attributes -- passed in rather than re-detected
+    here, so this never issues its own separate query-classification
+    call).
 
     Kept: every record of a topic-pure related attribute; every record whose attribute the question itself
     names ("charging" names charging_details); and at most ``max_unnamed`` of the remaining mixed records,
@@ -121,7 +124,6 @@ def limit_related(
     query's hits. Everything else is a fact nobody asked for."""
     if not related:
         return []
-    named_attrs = set(detect_attributes(query))
     kept = [d for d in related if d.attribute in named_attrs or d.attribute in TOPIC_PURE_RELATED]
     rest = [d for d in related if d not in kept]
     top = max(scores.values(), default=0.0)

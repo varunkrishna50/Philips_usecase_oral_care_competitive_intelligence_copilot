@@ -3,7 +3,8 @@ does the generator produce a faithful, relevant answer?
 
 Bypasses retrieval entirely: feeds the REAL generation hook
 (`_call_llm_for_segments` in src/rag/generation.py) the REAL
-RetrievalDocument objects selected by gold evidence_id membership
+RetrievalDocument objects selected by (product_id, attribute) membership
+against this case's hand-authored gold_products x gold_attributes
 (golden_dataset.golden_retrieval_documents), not by the retrieval
 ranking algorithm -- the same technique the old runner.py's
 poisoned-evidence test already used to reach into production code with
@@ -80,9 +81,10 @@ def evaluate_case(golden: GoldenCase, engine: RetrievalEngine, llm_client, mode:
     model = judge_model()
     # The judge must see the SAME evidence representation the generator was
     # actually given (docs' own shown_text, production's rendered form) --
-    # not golden.golden_context (GoldCorpus's raw evidence_text, which can be
-    # an unparsed structured-data blob). Scoring a claim against a different,
-    # messier rendering of the same fact than what produced it makes a fully
+    # not golden.golden_context (this case's hand-written expected_behavior +
+    # must_include, which describes the expected ANSWER, not the source
+    # evidence text). Scoring a claim against a different, unrelated
+    # representation of the fact than what produced it makes a fully
     # faithful citation look unverifiable to the judge.
     retrieval_context = [d.shown_text for d in docs]
     test_case = LLMTestCase(input=golden.question, actual_output=actual_output, retrieval_context=retrieval_context)

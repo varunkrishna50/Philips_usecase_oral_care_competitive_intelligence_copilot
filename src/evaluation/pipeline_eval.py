@@ -15,10 +15,11 @@ answer faithful to and relevant given whatever it retrieved -- not
 correctness against an external gold reference.)
 
 Groundedness is a GEval metric (not the old regex-based checker it
-replaces): context=golden_context, the INDEPENDENTLY-loaded gold
-evidence (gold_labels.py), not whatever was actually retrieved -- so it
-catches a claim that's "faithful" to a wrongly-retrieved context but
-still false against ground truth, which FaithfulnessMetric alone cannot.
+replaces): context=golden_context (this case's hand-written
+expected_behavior + must_include from test_cases.json), not whatever
+was actually retrieved -- so it catches a claim that's "faithful" to a
+wrongly-retrieved context but still false against the case's own
+stated ground truth, which FaithfulnessMetric alone cannot.
 
 Takes the one real `answer_query()` AnswerResult per case that
 runner.py already computed and shares across this module and
