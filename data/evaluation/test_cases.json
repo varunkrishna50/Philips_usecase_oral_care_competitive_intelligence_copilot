@@ -5,7 +5,7 @@
       "id": "fact_included_items_io9",
       "question": "What comes in the box with the Oral-B iO Series 9, and how many replacement brush heads are included?",
       "category": "included_items",
-      "expected_behavior": "Lists handle, 4 iO Ultimate Clean brush heads, Power2Go charging travel case (with cord) and magnetic charger, cited to the iO9 product page. Must say 4 brush heads.",
+      "expected_behavior": "Lists handle, 4 iO Ultimate Clean brush heads, Power2Go charging travel case (with cord) and magnetic charger, cited to the iO9 product page. Must say 4 brush heads.The page does not mention brush head replacement interval for Oral-B iO Series 9 Rechargeable Electric Toothbrush, Aqua Marine.",
       "gold_products": [
         "oralb_io-series-9-rechargeable-electric-toothbrush"
       ],
@@ -21,9 +21,9 @@
     },
     {
       "id": "compare_pressure_feedback_9900_vs_io9",
-      "question": "How do the Sonicare Prestige 9900 and the Oral-B iO Series 7 each warn you when you brush too hard?",
+      "question": "Compare Sonicare 9900 and Oral-B iO Series 7 in terms of pressure sensing",
       "category": "comparison",
-      "expected_behavior": "Describes the Philips light-ring alert (ease off when it lights up) and the Oral-B Smart Pressure Sensor too hard / too soft / just right feedback, each cited to its own page. Must not describe the Philips sensor as only a generic 'visual sensor'.",
+      "expected_behavior": "Describes Both the Sonicare 9900 and the Oral-B iO Series 7 feature pressure sensors to help protect your gums and enamel. The Oral-B iO Series 7 uses a Smart Pressure Sensor that changes color to indicate if you are brushing too hard, too light, or just right, while the Sonicare 9900 offers a visual pressure sensor to provide feedback during brushing.",
       "gold_products": [
         "philips_hx9990-13",
         "oralb_io-series-9-rechargeable-electric-toothbrush"

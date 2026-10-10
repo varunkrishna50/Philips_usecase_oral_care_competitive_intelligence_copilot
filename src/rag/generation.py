@@ -479,14 +479,18 @@ def _answer_comparison(
         else:
             llm_segments, failure = _call_llm_for_segments(
                 "The feature-by-feature values below are already shown to the user in a table above this "
-                "text. Write ONE short paragraph (2-4 sentences) in plain language highlighting the most "
-                "notable differences or similarities between the two products, the way a product page "
-                "would talk to a customer -- never describe your own process or use words like "
-                "\"evidence\" or \"attribute\". Still cite normally: list every handle that supports a "
-                "claim in the segment's citation_ids array (never leave citation_ids empty, even though "
-                "this is a summary) -- do not rely on mentioning handles inside the text itself. Never "
-                "state a number that isn't supported by what's given; the table already shows every exact "
-                "figure, so this paragraph should read as a takeaway, not a repeat of every number.",
+                "text, including every price, count, and the exact gap between the two products. Write ONE "
+                "short paragraph (2-4 sentences) in plain language highlighting the most notable differences "
+                "or similarities between the two products, the way a product page would talk to a customer "
+                "-- never describe your own process or use words like \"evidence\" or \"attribute\". Still "
+                "cite normally: list every handle that supports a claim in the segment's citation_ids array "
+                "(never leave citation_ids empty, even though this is a summary) -- do not rely on "
+                "mentioning handles inside the text itself. Do not write ANY number in this paragraph -- no "
+                "dollar amount, percentage, or count, and never calculate or state a difference/gap yourself "
+                "(for example, never write something like \"a $130 difference\"), even if it looks correct. "
+                "Describe differences only in words (\"noticeably cheaper\", \"a similar number of modes\", "
+                "\"several days longer\"), never as a figure -- the table above already shows every exact "
+                "number, so this paragraph is a plain-language takeaway, not a repeat of any of them.",
                 query, citable_evidence, llm_client,
             )
             if failure or not llm_segments:
