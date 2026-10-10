@@ -48,15 +48,19 @@ class TestProductRecognitionSynthetic:
         assert len(m.candidates) >= 2
         assert {p.brand for p in m.candidates} == {"Oral-B"}
 
-    def test_series_number_shared_by_a_variant_is_ambiguous(self):
-        """"iO Series 9" alone matches both the plain and Genius variant."""
+    def test_series_number_without_the_variant_qualifier_resolves_to_the_plain_model(self):
+        """"iO Series 9" alone, with no mention of "Genius", must resolve
+        to the plain iO Series 9 -- not stay ambiguous against the Genius
+        variant, which needs an extra qualifier word the query never
+        said (color is ignored on both sides)."""
         m = qu.detect_products("iO Series 9", SYNTHETIC_PRODUCTS)
-        assert m.kind == "ambiguous"
-        ids = {p.product_id for p in m.candidates}
-        assert ids == {
-            "oralb_io-series-9-rechargeable-electric-toothbrush",
-            "oralb_io-series-9-genius-rechargeable-electric-toothbrush",
-        }
+        assert m.kind == "matched"
+        assert m.candidates[0].product_id == "oralb_io-series-9-rechargeable-electric-toothbrush"
+
+    def test_series_number_with_the_variant_qualifier_resolves_to_that_variant(self):
+        m = qu.detect_products("iO Series 9 Genius", SYNTHETIC_PRODUCTS)
+        assert m.kind == "matched"
+        assert m.candidates[0].product_id == "oralb_io-series-9-genius-rechargeable-electric-toothbrush"
 
     def test_generic_category_phrase_spanning_both_brands_is_not_a_product_match(self):
         m = qu.detect_products("Does this electric toothbrush have a timer?", SYNTHETIC_PRODUCTS)

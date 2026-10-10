@@ -1,77 +1,117 @@
-"""Configurable quality-gate thresholds (3C.12). Loaded from
-data/evaluation/quality_gates.json so thresholds are editable without a
-code change; scripts/evaluate.py prints PASS/FAIL and exits non-zero on
-any gate failure."""
+"""Configurable quality-gate thresholds, one section per evaluation
+category, loaded from data/evaluation/quality_gates.json so thresholds
+are editable without a code change. Defaults here are a first cut
+(DeepEval's own default per-metric threshold is 0.5; these start at
+0.6-0.8 given a GPT-4.1 judge) -- tune after the first real --live run.
+"""
 from __future__ import annotations
 
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 DEFAULT_GATES_PATH = Path(__file__).resolve().parents[2] / "data" / "evaluation" / "quality_gates.json"
 
 
 @dataclass
 class QualityGates:
-    safety_pass_rate_min: float = 1.0
-    unsupported_claim_rate_max: float = 0.0
-    exhaustive_completeness_min: float = 1.0
-    # factual segments shown without a citation (not-mentioned disclosures and validator-rejected
-    # segments are not counted: see citation_metrics.py)
-    uncited_factual_segments_max: int = 0
-    # answer quality (src/evaluation/answer_quality.py): what the reader sees must be concise and plain
-    duplicate_source_rate_max: float = 0.0
-    redundant_segment_rate_max: float = 0.0
-    jargon_rate_max: float = 0.0
-    template_jargon_max: int = 0
+    retriever: dict
+    generator: dict
+    pipeline: dict
+    application: dict
 
     @classmethod
     def load(cls, path: Path = DEFAULT_GATES_PATH) -> "QualityGates":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls(**data)
+        return cls(**{k: data.get(k, {}) for k in ("retriever", "generator", "pipeline", "application")})
 
 
 @dataclass
 class GateResult:
     name: str
     threshold: float
-    actual: float
+    actual: Optional[float]
     passed: bool
     comparison: str  # "min" or "max"
 
 
-def evaluate_gates(gates: QualityGates, metrics: dict) -> list[GateResult]:
-    """metrics must carry: safety_pass_rate, unsupported_claim_rate,
-    exhaustive_completeness (all in [0, 1])."""
-    results = []
-    safety_rate = metrics.get("safety_pass_rate", 0.0)
-    results.append(GateResult(
-        name="safety_pass_rate", threshold=gates.safety_pass_rate_min, actual=safety_rate,
-        passed=safety_rate >= gates.safety_pass_rate_min, comparison="min",
-    ))
-    unsupported_rate = metrics.get("unsupported_claim_rate", 1.0)
-    results.append(GateResult(
-        name="unsupported_claim_rate", threshold=gates.unsupported_claim_rate_max, actual=unsupported_rate,
-        passed=unsupported_rate <= gates.unsupported_claim_rate_max, comparison="max",
-    ))
-    exhaustive_completeness = metrics.get("exhaustive_completeness", 0.0)
-    results.append(GateResult(
-        name="exhaustive_completeness", threshold=gates.exhaustive_completeness_min, actual=exhaustive_completeness,
-        passed=exhaustive_completeness >= gates.exhaustive_completeness_min, comparison="min",
-    ))
-    uncited = metrics.get("uncited_factual_segments", 0)
-    results.append(GateResult(
-        name="uncited_factual_segments", threshold=gates.uncited_factual_segments_max, actual=uncited,
-        passed=uncited <= gates.uncited_factual_segments_max, comparison="max",
-    ))
-    for name, key, limit in (
-        ("duplicate_source_rate", "duplicate_source_rate", gates.duplicate_source_rate_max),
-        ("redundant_segment_rate", "redundant_segment_rate", gates.redundant_segment_rate_max),
-        ("jargon_rate", "jargon_rate", gates.jargon_rate_max),
-        ("template_jargon", "template_jargon", gates.template_jargon_max),
-    ):
-        actual = metrics.get(key, 0)
-        results.append(GateResult(name=name, threshold=limit, actual=actual, passed=actual <= limit, comparison="max"))
+def _mean_score(category_report: dict, metric_name: str) -> Optional[float]:
+    agg = (category_report or {}).get("aggregate") or {}
+    entry = agg.get(metric_name)
+    return entry.get("mean_score") if entry else None
+
+
+def _pass_rate(category_report: dict, metric_name: str) -> Optional[float]:
+    agg = (category_report or {}).get("aggregate") or {}
+    entry = agg.get(metric_name)
+    return entry.get("pass_rate") if entry else None
+
+
+def _gate(name: str, threshold, actual, comparison: str) -> GateResult:
+    if actual is None:
+        return GateResult(name, threshold, None, passed=False, comparison=comparison)
+    passed = (actual >= threshold) if comparison == "min" else (actual <= threshold)
+    return GateResult(name, threshold, actual, passed, comparison)
+
+
+def evaluate_gates(gates: QualityGates, report: dict) -> list[GateResult]:
+    """`report` is the dict run_deepeval_suite() returns: one key per
+    category (retriever/generator/pipeline/application). Gates for a
+    category the caller didn't request this invocation (--category
+    filtered it out) are skipped entirely -- that's a deliberate
+    filter, not a gap. Within a category that DID run, a metric/case
+    that genuinely didn't execute still reports actual=None,
+    passed=False -- never silently counted as a pass."""
+    results: list[GateResult] = []
+
+    retriever, generator, pipeline, application = (
+        report.get("retriever"), report.get("generator"), report.get("pipeline"), report.get("application"),
+    )
+
+    if retriever is not None:
+        for metric, key in (("ContextualPrecisionMetric", "contextual_precision_min"),
+                             ("ContextualRecallMetric", "contextual_recall_min"),
+                             ("ContextualRelevancyMetric", "contextual_relevancy_min")):
+            if key in gates.retriever:
+                results.append(_gate(f"retriever.{key}", gates.retriever[key], _mean_score(retriever, metric), "min"))
+
+    if generator is not None:
+        for metric, key in (("FaithfulnessMetric", "faithfulness_min"), ("AnswerRelevancyMetric", "answer_relevancy_min"),
+                             ("CitationFaithfulness", "citation_faithfulness_min")):
+            if key in gates.generator:
+                results.append(_gate(f"generator.{key}", gates.generator[key], _mean_score(generator, metric), "min"))
+
+    if pipeline is not None:
+        for metric, key in (("FaithfulnessMetric", "faithfulness_min"), ("AnswerRelevancyMetric", "answer_relevancy_min"),
+                             ("ContextualRelevancyMetric", "contextual_relevancy_min"), ("Groundedness", "groundedness_min")):
+            if key in gates.pipeline:
+                results.append(_gate(f"pipeline.{key}", gates.pipeline[key], _mean_score(pipeline, metric), "min"))
+
+    if application is not None:
+        for metric, key in (("Correctness", "correctness_min"), ("Completeness", "completeness_min"),
+                             ("CitationFaithfulness", "citation_faithfulness_min"),
+                             ("Toxicity", "toxicity_min"), ("PIILeakage", "pii_leakage_min"),
+                             ("RoleAdherence", "role_adherence_min"), ("NonAdvice", "non_advice_min")):
+            if key in gates.application:
+                results.append(_gate(f"application.{key}", gates.application[key], _mean_score(application, metric), "min"))
+        for metric, key in (("ComparisonArithmetic", "comparison_arithmetic_pass_rate_min"),
+                             ("DataLeakage", "data_leakage_pass_rate_min"),
+                             ("PromptInjection", "prompt_injection_pass_rate_min")):
+            if key in gates.application:
+                results.append(_gate(f"application.{key}", gates.application[key], _pass_rate(application, metric), "min"))
+        aq = application.get("answer_quality_aggregate") or {}
+        for key, actual in (
+            ("duplicate_source_rate_max", aq.get("duplicate_source_rate")),
+            ("redundant_segment_rate_max", aq.get("redundant_segment_rate")),
+            ("jargon_rate_max", aq.get("jargon_rate")),
+        ):
+            if key in gates.application:
+                results.append(_gate(f"application.{key}", gates.application[key], actual, "max"))
+        if "template_jargon_max" in gates.application:
+            results.append(_gate("application.template_jargon_max", gates.application["template_jargon_max"],
+                                  len(application.get("template_jargon") or {}), "max"))
+
     return results
 
 

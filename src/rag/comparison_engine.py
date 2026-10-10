@@ -27,6 +27,44 @@ class ComparisonResult:
     citation_evidence_ids: list[str] = field(default_factory=list)
 
 
+@dataclass
+class ComparisonRow:
+    """One row of a rendered comparison table (citations.py's
+    render_comparison_table): a short, table-friendly value per side,
+    built deterministically from the same ComparisonResult data the old
+    sentence-per-attribute summary used -- no LLM involved."""
+    attribute_label: str
+    cell_a_text: str
+    cell_a_citation_ids: list[str]
+    cell_b_text: str
+    cell_b_citation_ids: list[str]
+
+
+def _cell_text(status: AttributeStatus, attribute: str) -> str:
+    if status.status == "not_mentioned":
+        return "Not stated"
+    if status.status == "stated_absent":
+        return "No"
+    if status.status == "ambiguous":
+        return "Conflicting info"
+    # status == "stated"
+    if status.value is None:
+        return "Stated (no exact figure)"
+    if isinstance(status.value, bool):
+        return "Yes" if status.value else "No"
+    return _format_number(attribute, status.value)
+
+
+def build_comparison_row(comp: ComparisonResult) -> ComparisonRow:
+    return ComparisonRow(
+        attribute_label=attribute_label(comp.attribute),
+        cell_a_text=_cell_text(comp.status_a, comp.attribute),
+        cell_a_citation_ids=evidence_ids_for(comp.status_a),
+        cell_b_text=_cell_text(comp.status_b, comp.attribute),
+        cell_b_citation_ids=evidence_ids_for(comp.status_b),
+    )
+
+
 def _format_number(attribute: str, value) -> str:
     return f"${value:.2f}" if attribute == "price" else str(value)
 

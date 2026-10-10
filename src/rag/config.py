@@ -28,7 +28,7 @@ EMBEDDING_DIM = 384
 # an empirical BM25-only vs semantic-only vs hybrid comparison.
 DEFAULT_ALPHA = 0.5
 
-DEFAULT_TOP_K = 10
+DEFAULT_TOP_K = 5
 
 # Only these two hosts are approved Step 1 sources. Evidence from
 # anywhere else must never be returned by evidence_filter.

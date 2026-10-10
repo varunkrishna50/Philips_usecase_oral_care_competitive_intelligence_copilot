@@ -12,11 +12,30 @@ format on top of the one answer_query() already produces
 """
 from __future__ import annotations
 
+import re
+
 import streamlit as st
 
 from src.app.engine import get_engine, get_llm_client
 from src.rag.generation import answer_query
 from src.rag.llm_provider import LLMConfig
+
+_MARKER_RE = re.compile(r"\[S(\d+)\]")
+
+
+def _linkify_markers(text: str, citation_urls: dict[str, str]) -> str:
+    """Turns the [S1]/[S2] markers answer_query() already placed in
+    answer_text into markdown hyperlinks, using the marker->URL mapping
+    citations.py already computed (AnswerResult.citation_urls) -- pure
+    string substitution on already-validated data, not a second
+    citation renderer. A marker with no known URL (shouldn't happen,
+    but defensively) is left as plain text."""
+    def _replace(match: re.Match) -> str:
+        marker = f"S{match.group(1)}"
+        url = citation_urls.get(marker)
+        return f"[{match.group(0)}]({url})" if url else match.group(0)
+
+    return _MARKER_RE.sub(_replace, text)
 
 st.set_page_config(page_title="Oral Care Competitive Intelligence Copilot", page_icon="🪥")
 
@@ -60,9 +79,10 @@ if ask_clicked:
             )
             st.caption(f"Technical detail: {type(exc).__name__}: {exc}")
         else:
-            st.markdown(result.answer_text)
+            st.markdown(_linkify_markers(result.answer_text, result.citation_urls))
             if result.sources_text:
-                st.markdown(result.sources_text)
+                with st.expander("Sources", expanded=False):
+                    st.markdown(result.sources_text)
             if result.llm_unavailable_reason:
                 st.caption(result.llm_unavailable_reason)
 

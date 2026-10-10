@@ -85,6 +85,23 @@ MIN_PRODUCT_MATCH_LEN = 2
 MAX_GENERIC_TIE = 20  # a tie this wide is a category phrase, not a product family
 
 
+def _pre_color_discriminative_tokens(product_name: str) -> set[str]:
+    """Discriminative tokens from the model-identifying part of a
+    product name only -- the part BEFORE a trailing ", Color Name"
+    (every product in this catalog that has a color variant follows
+    that convention, confirmed across the real corpus: "...Rechargeable
+    Electric Toothbrush, Aqua Marine", "...Genius Rechargeable Electric
+    Toothbrush, Sapphire Blue", etc.). A color is almost never mentioned
+    by a user and must never count as an "extra" qualifier that makes
+    an otherwise-exact model match look ambiguous against a same-family
+    variant that has a real, functionally-different qualifier word
+    (e.g. "iO Series 9" vs "iO Series 9 Genius" -- the distinguishing
+    word there is "Genius", not the color, and that's what should drive
+    disambiguation when the query only ever says "iO Series 9")."""
+    pre_comma = product_name.split(",", 1)[0]
+    return {t for t in normalize_tokens(pre_comma) if t not in _GENERIC_MATCH_TOKENS}
+
+
 def _known_product_numbers(products: list[ProductRecord]) -> set[str]:
     known: set[str] = set()
     for p in products:
@@ -145,6 +162,25 @@ def _detect_products_by_name(query: str, products: list[ProductRecord]) -> Produ
     tied = [p for p, s in scored if s == best_score]
     if len(tied) == 1:
         return ProductMatch(kind="matched", candidates=tied, match_len=raw_len)
+
+    # A genuine tie can still be resolved: prefer whichever tied
+    # candidate(s) require NO qualifier word the query didn't already say
+    # (ignoring color, which a user is never expected to mention). This
+    # is what lets a bare "Oral-B iO Series 9" resolve to the plain
+    # iO Series 9 instead of staying ambiguous against "iO Series 9
+    # Genius" -- the query never said "genius", so that variant needs
+    # something extra the user didn't ask for. If the query DOES name
+    # the extra qualifier (e.g. "iO Series 9 Genius"), _best_match_score
+    # already gives that candidate a strictly higher score earlier, so
+    # this narrowing only ever runs on real ties.
+    matched_discriminative = {t for t in query_tokens if t not in _GENERIC_MATCH_TOKENS}
+    exact_tied = [
+        p for p in tied
+        if _pre_color_discriminative_tokens(p.product_name) <= matched_discriminative
+    ]
+    if len(exact_tied) == 1:
+        return ProductMatch(kind="matched", candidates=exact_tied, match_len=raw_len)
+
     brands = {p.brand for p in tied}
     if len(brands) == 1 and len(tied) <= MAX_GENERIC_TIE:
         return ProductMatch(kind="ambiguous", candidates=tied, match_len=raw_len)
@@ -408,8 +444,14 @@ def detect_exhaustive_condition_value(query: str, attribute: str):
 # ---------------------------------------------------------------------------
 
 _EXHAUSTIVE_RE = re.compile(r"\bwhich (?:products?|models?|toothbrushes?)\b", re.I)
-_COMPARISON_RE = re.compile(r"\bcompar\w*\b|\bvs\.?\b|\bversus\b", re.I)
-_COMPARISON_SPLIT_RE = re.compile(r"\bvs\.?\b|\bversus\b|\band\b|\bcompar\w*\b", re.I)
+_COMPARISON_RE = re.compile(
+    r"\bcompar\w*\b|\bvs\.?\b|\bversus\b"
+    r"|\bdifference between\b"
+    r"|\bwhich (?:is|one is|costs?|has)\b[^.?!]{0,40}\b(?:cheaper|more expensive|better|faster|lighter|heavier|less|more|fewer|higher|lower)\b"
+    r"|\bby how much\b",
+    re.I,
+)
+_COMPARISON_SPLIT_RE = re.compile(r"\bvs\.?\b|\bversus\b|\band\b|\bor\b|\bcompar\w*\b", re.I)
 
 
 def classify_intent(query: str, product_match: ProductMatch) -> Intent:

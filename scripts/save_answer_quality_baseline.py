@@ -6,7 +6,7 @@ Run it ONCE, after an evaluation run of the behaviour you want to compare agains
 changing that behaviour. It refuses to overwrite an existing baseline unless --force is given,
 so a later 'improved' run cannot silently replace the 'before' numbers.
 
-    python scripts/evaluate.py && python scripts/evaluate.py --live
+    python scripts/evaluate.py --category application && python scripts/evaluate.py --live --category application
     python scripts/save_answer_quality_baseline.py
 """
 from __future__ import annotations
@@ -43,22 +43,22 @@ def main() -> int:
         "git_head": _git("rev-parse", "--short", "HEAD"),
         "note": "Answer-quality numbers measured on the answers assembled BEFORE the de-duplication / plain-wording fixes.",
     }
-    for mode, name in (("offline", "results.json"), ("live", "results_live.json")):
-        path = EVAL / name
+    for mode, dirname in (("offline", "deepeval"), ("live", "deepeval_live")):
+        path = EVAL / dirname / "report.json"
         if not path.exists():
-            print(f"missing {name}; run scripts/evaluate.py{' --live' if mode == 'live' else ''} first")
+            print(f"missing {path}; run scripts/evaluate.py{' --live' if mode == 'live' else ''} --category application first")
             return 1
         results = json.loads(path.read_text(encoding="utf-8"))
-        quality = results.get("answer_quality")
-        if not quality:
-            print(f"{name} has no answer_quality section; re-run the evaluation with the metrics in place")
+        application = results.get("application")
+        if not application:
+            print(f"{path} has no 'application' section; re-run with --category application (or no --category)")
             return 1
         baseline[mode] = {
-            **quality["aggregate"],
-            "template_samples": quality["template_samples"],
-            "templates_with_jargon": len(quality["template_jargon"]),
+            **application["answer_quality_aggregate"],
+            "template_samples": application["template_samples_checked"],
+            "templates_with_jargon": len(application["template_jargon"]),
             "run_timestamp": results["timestamp"],
-            "cases_total": results["aggregate_metrics"]["total_cases"],
+            "cases_total": application["total_cases"],
         }
     OUT.write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
     print(f"wrote {OUT}")

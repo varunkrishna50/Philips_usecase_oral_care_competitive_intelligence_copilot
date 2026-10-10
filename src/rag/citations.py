@@ -14,6 +14,7 @@ from decimal import Decimal
 from dataclasses import dataclass, field
 from typing import Optional
 
+from .comparison_engine import ComparisonRow
 from .models import ProductRecord, RetrievalDocument
 from .query_understanding import detect_products
 
@@ -207,6 +208,26 @@ def render_answer_text(validated_segments: list[ValidatedSegment], marker_by_id:
         markers = " ".join(f"[{m}]" for m in dict.fromkeys(marker_by_id[cid] for cid in seg.citation_ids))
         lines.append(f"{seg.text} {markers}".strip())
     return "\n\n".join(lines)
+
+
+def render_comparison_table(rows: list[ComparisonRow], product_a_name: str, product_b_name: str, marker_by_id: dict[str, str]) -> str:
+    """One markdown table row per comparison attribute, each cell's
+    marker(s) looked up from the SAME marker_by_id a comparison's
+    summary paragraph also uses (assign_markers, called once over both
+    -- see _answer_comparison in generation.py) -- so table and summary
+    share consistent [S1]/[S2] numbering, and render_sources_section
+    (unmodified) covers both automatically."""
+    def cell(text: str, citation_ids: list[str]) -> str:
+        markers = " ".join(f"[{marker_by_id[cid]}]" for cid in dict.fromkeys(citation_ids) if cid in marker_by_id)
+        return f"{text} {markers}".strip()
+
+    lines = [
+        f"| Feature | {product_a_name} | {product_b_name} |",
+        "|---|---|---|",
+    ]
+    for row in rows:
+        lines.append(f"| {row.attribute_label} | {cell(row.cell_a_text, row.cell_a_citation_ids)} | {cell(row.cell_b_text, row.cell_b_citation_ids)} |")
+    return "\n".join(lines)
 
 
 def display_section(ev: RetrievalDocument) -> str:

@@ -35,8 +35,23 @@ from .rerank import rerank
 from .scoring import combine_hybrid
 
 
-# user-facing text when the named product is not in the data
+# user-facing text when the named product is not in the data -- kept as a static constant (not a
+# function) so answer_quality.py's generic template-jargon scan (a plain getattr(module, name)
+# over this exact name) keeps working unchanged; the real per-query message appends a dynamically
+# built product list after this base text (see _available_products_suffix below).
 NOT_IN_CORPUS_MESSAGE = "I couldn't find that product on the Philips US or Oral-B US pages I have."
+
+
+def _available_products_suffix(product_corpus: list[ProductRecord]) -> str:
+    """Lists every real product, grouped by brand, so a not-in-corpus
+    refusal points the user at something that actually exists instead
+    of leaving them guessing. 21 products total -- short enough to list
+    in full, so there's no need to guess which subset is "relevant"."""
+    by_brand: dict[str, list[str]] = {}
+    for p in product_corpus:
+        by_brand.setdefault(p.brand, []).append(p.product_name)
+    parts = [f"{brand}: {', '.join(sorted(names))}" for brand, names in sorted(by_brand.items())]
+    return "Here are the Philips Sonicare and Oral-B models I do have -- " + "; ".join(parts) + "."
 
 
 @dataclass
@@ -144,7 +159,7 @@ class RetrievalEngine:
         # 3A.15 -- product named but not in the corpus: say so, don't substitute.
         if product_match.kind == "not_in_corpus":
             result.not_in_corpus = True
-            result.not_in_corpus_message = NOT_IN_CORPUS_MESSAGE
+            result.not_in_corpus_message = f"{NOT_IN_CORPUS_MESSAGE} {_available_products_suffix(self.product_corpus)}"
             return result
 
         # 3A.13 -- exhaustive "which products have X" bypasses top-k entirely.

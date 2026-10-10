@@ -80,8 +80,9 @@ def step2_minimal_call(config: LLMConfig) -> OpenAIStructuredClient:
 def _report_answer(label: str, query: str, result, client: OpenAIStructuredClient, calls_before: int) -> None:
     """calls_before is this client's call_count BEFORE this query ran --
     required to tell whether THIS query made a real call at all (vs.
-    short-circuiting before generation, e.g. an ambiguous product or an
-    always-deterministic comparison). client.last_usage/last_latency_
+    short-circuiting before generation, e.g. an ambiguous product, or a
+    comparison attribute that isn't safely comparable and so is never
+    asked of the LLM). client.last_usage/last_latency_
     seconds persist from whichever call happened most recently, so
     printing them unconditionally would misattribute a prior query's
     token usage to a query that made no call of its own -- only shown
@@ -153,15 +154,16 @@ def step3_queries(engine: RetrievalEngine, client: OpenAIStructuredClient) -> No
     result_c = answer_query(query_c, engine, llm_client=client)
     _report_answer("(c) manufacturer claim/description verbalization", query_c, result_c, client, calls_before_c)
 
-    # (d) comparison -- must be fully deterministic, LLM never called
+    # (d) comparison -- LLM-first for comparable attributes, deterministic disclosure
+    # for any attribute that isn't safely comparable (never asked of the LLM)
     calls_before_d = client.call_count
     query_d = (
         "Compare the iO Series 10 and Sonicare Prestige 9900 on number of brushing "
         "modes and price."
     )
     result_d = answer_query(query_d, engine, llm_client=client)
-    _report_answer("(d) comparison (expected: deterministic, LLM NOT called)", query_d, result_d, client, calls_before_d)
-    print(f"CONFIRMED LLM NOT CALLED: {client.call_count == calls_before_d}")
+    _report_answer("(d) comparison (expected: LLM called for comparable attributes)", query_d, result_d, client, calls_before_d)
+    print(f"LLM called this query: {client.call_count > calls_before_d}")
     print()
 
     # (e) user prompt injection

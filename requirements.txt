@@ -36,3 +36,8 @@ streamlit==1.65.0
 
 # Testing
 pytest==9.1.1
+
+# Step 3c: DeepEval-based RAG evaluation (src/evaluation). Judge-model calls go to
+# OpenAI (same provider already used for generation); telemetry is opted out in
+# src/evaluation/judge.py and no Confident AI login/API key is ever configured.
+deepeval==4.2.8

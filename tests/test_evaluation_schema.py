@@ -1,4 +1,4 @@
-"""Tests for the test_cases.json schema validation (3C.1)."""
+"""Tests for the test_cases.json schema validation."""
 from __future__ import annotations
 
 import json
@@ -21,15 +21,21 @@ class TestLoadRealTestSuite:
         ids = [c.id for c in suite.cases]
         assert len(ids) == len(set(ids))
 
-    def test_covers_required_categories(self):
+    def test_covers_a_comparison_category(self):
+        """"comparison" is the one category value that's semantically
+        load-bearing (golden_dataset.py / application_eval.py both
+        route on it for the comparison-arithmetic check) -- every other
+        category is a free-form report label, so this is the only
+        value worth asserting the suite actually contains."""
         suite = load_test_suite(REAL_TEST_CASES_PATH)
         categories = {c.category for c in suite.cases}
-        required = {
-            "direct_attribute", "comparison", "exhaustive", "ambiguous_product",
-            "out_of_corpus", "out_of_scope_source", "medical_advice",
-            "prompt_injection_user", "prompt_injection_evidence",
-        }
-        assert required <= categories
+        assert "comparison" in categories
+
+    def test_every_comparison_case_has_a_comparison_pair(self):
+        suite = load_test_suite(REAL_TEST_CASES_PATH)
+        for c in suite.cases:
+            if c.category == "comparison":
+                assert c.comparison_pair and len(c.comparison_pair) == 2, c.id
 
 
 class TestTestCaseValidation:
@@ -43,10 +49,15 @@ class TestTestCaseValidation:
             TestCase(id="", question="q", category="direct_attribute",
                      expected_behavior="y", expected_answer_type="fact")
 
-    def test_rejects_unknown_category(self):
-        with pytest.raises(ValidationError):
-            TestCase(id="x", question="q", category="not_a_real_category",
-                     expected_behavior="y", expected_answer_type="fact")
+    def test_category_is_free_form_not_a_closed_enum(self):
+        """category/expected_answer_type are plain strings, not a
+        Literal -- only the literal value "comparison" is ever
+        pattern-matched by the harness (see schema.py's own docstring);
+        every other value is just a report label, so a new case-type
+        taxonomy never needs a schema change to be usable."""
+        case = TestCase(id="x", question="q", category="a_brand_new_case_type",
+                         expected_behavior="y", expected_answer_type="something_new")
+        assert case.category == "a_brand_new_case_type"
 
     def test_defaults_are_sensible(self):
         case = TestCase(id="x", question="q", category="direct_attribute",
@@ -54,7 +65,8 @@ class TestTestCaseValidation:
         assert case.must_cite is True
         assert case.llm_expected is True
         assert case.gold_products == []
-        assert case.exhaustive_condition_value is True
+        assert case.must_include == []
+        assert case.comparison_pair is None
 
 
 class TestTestSuiteValidation:
