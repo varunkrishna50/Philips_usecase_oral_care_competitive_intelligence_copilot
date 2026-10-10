@@ -1,6 +1,4 @@
-# Step 1: data acquisition dependencies only.
-# No RAG/embeddings/vector-DB/LLM dependencies belong in this stage.
-
+# Step 1: data acquisition.
 requests==2.34.2
 beautifulsoup4==4.15.0
 lxml==6.1.3
@@ -12,32 +10,31 @@ pydantic==2.13.5
 #   playwright install chromium
 playwright==1.63.0
 
-# Step 2: normalization output serialization
+# Step 2: normalization output (tabular processing and serialization).
+pandas==3.0.6
 pyarrow==25.0.1
 
 # Step 3a: retrieval foundation (BM25 + semantic embeddings + FAISS).
-# No paid embedding/LLM API -- sentence-transformers/all-MiniLM-L6-v2
-# runs locally (downloaded from the HuggingFace Hub on first use, then
-# cached). No LLM dependency belongs in this stage.
+# No paid embedding API -- sentence-transformers/all-MiniLM-L6-v2 runs
+# locally (downloaded from the HuggingFace Hub on first use, then cached).
+numpy==2.5.3
 rank-bm25==0.2.2
 faiss-cpu==1.15.1
 sentence-transformers==6.1.0
 torch==2.14.1
 
-# Step 3b: grounded generation. Pinned OpenAI client for the LLM path;
-# the app works fully without it (no-key deterministic fallback, 3B.3) --
-# this is only required to exercise the LLM-enabled code path.
+# Step 3b: grounded generation. The app works fully without a configured
+# key (deterministic fallback); this is only required to exercise the
+# LLM-authored prose path.
 openai==3.26.0
 python-dotenv==1.2.4
 
-# Step 3c.2: Streamlit UI (app.py). Presentation only -- calls the
-# existing answer_query() pipeline unchanged; no new business logic.
+# Step 3c: Streamlit UI (app.py). Presentation only -- calls the existing
+# answer_query() pipeline unchanged.
 streamlit==1.65.0
 
-# Testing
+# Testing and evaluation. Judge-model calls go to OpenAI (same provider
+# already used for generation); telemetry is opted out in
+# src/evaluation/judge.py and no Confident AI login/API key is configured.
 pytest==9.1.1
-
-# Step 3c: DeepEval-based RAG evaluation (src/evaluation). Judge-model calls go to
-# OpenAI (same provider already used for generation); telemetry is opted out in
-# src/evaluation/judge.py and no Confident AI login/API key is ever configured.
 deepeval==4.2.8

@@ -3,7 +3,7 @@
 Reads only Step 2's frozen outputs (data/processed/comparison_table.csv,
 data/processed/evidence.json) -- never Step 1 raw HTML, never the live
 websites, and (in 3a) never an LLM. See retrieve.py for the orchestration
-entry point and README.md for the architecture.
+entry point and docs/ARCHITECTURE.md for the design rationale.
 """
 import os
 

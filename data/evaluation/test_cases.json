@@ -21,7 +21,7 @@
     },
     {
       "id": "compare_pressure_feedback_9900_vs_io9",
-      "question": "How do the Sonicare Prestige 9900 and the Oral-B iO Series 9 each warn you when you brush too hard?",
+      "question": "How do the Sonicare Prestige 9900 and the Oral-B iO Series 7 each warn you when you brush too hard?",
       "category": "comparison",
       "expected_behavior": "Describes the Philips light-ring alert (ease off when it lights up) and the Oral-B Smart Pressure Sensor too hard / too soft / just right feedback, each cited to its own page. Must not describe the Philips sensor as only a generic 'visual sensor'.",
       "gold_products": [

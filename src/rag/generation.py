@@ -137,7 +137,7 @@ def _build_system_prompt() -> str:
         "has provided enough information to answer the question. "
         "If the intended product, model, or comparison is ambiguous, "
         "ask a concise clarifying question. Do not guess the intended "
-        "product. Ask only for the information needed to proceed.\n\n"
+        "product. Ask only for the information needed to proceed. If you can find only one of the products, say explicitly that you can't find the other product so the answer is out of your scope\n\n"
 
         # 4. Unsupported products
         "PRODUCT AVAILABILITY:\n"
